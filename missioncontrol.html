@@ -1,0 +1,842 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Mission Control — Operations (mock)</title>
+<style>
+  :root {
+    --bg: #fafafa;
+    --surface: #ffffff;
+    --border: #e4e4e7;
+    --text-primary: #18181b;
+    --text-secondary: #52525b;
+    --text-muted: #71717a;
+    --amber-text: #92400e;
+    --amber-line: #b45309;
+    --bg-warning: #fbf3e4;
+    --red-text: #991b1b;
+    --red-line: #b91c1c;
+    --bg-danger: #fdf0ef;
+    --green-dot: #15803d;
+    --spark: #a1a1aa;
+    --chat-user-bg: #f1f1f3;
+    --focus: #18181b;
+    --z-sheet-backdrop: 40;
+    --z-sheet: 50;
+  }
+  [data-theme="dark"] {
+    --bg: #131316;
+    --surface: #1a1a1f;
+    --border: #2a2a31;
+    --text-primary: #ececef;
+    --text-secondary: #a7a7b0;
+    --text-muted: #82828c;
+    --amber-text: #e8b45a;
+    --amber-line: #d19a3d;
+    --bg-warning: #2a2318;
+    --red-text: #f2918c;
+    --red-line: #dd6b64;
+    --bg-danger: #2c1c1b;
+    --green-dot: #4ade80;
+    --spark: #5d5d66;
+    --chat-user-bg: #26262c;
+    --focus: #ececef;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    background: var(--bg);
+    color: var(--text-primary);
+    font-size: 13px;
+    line-height: 1.45;
+    -webkit-font-smoothing: antialiased;
+  }
+  button { font: inherit; color: inherit; background: none; border: none; cursor: pointer; }
+  button:focus-visible, a:focus-visible, input:focus-visible {
+    outline: 1.5px solid var(--focus); outline-offset: 2px; border-radius: 4px;
+  }
+
+  .app { display: flex; flex-direction: column; height: 100dvh; }
+
+  /* ---------- header ---------- */
+  header {
+    display: flex; align-items: center; gap: 16px;
+    padding: 10px 20px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    flex-wrap: wrap;
+  }
+  .brand { font-weight: 500; font-size: 14px; letter-spacing: -0.01em; white-space: nowrap; }
+  .brand .sub { color: var(--text-muted); font-weight: 400; font-size: 11px; margin-left: 8px; }
+  .seg {
+    display: inline-flex; border: 1px solid var(--border); border-radius: 7px; overflow: hidden;
+  }
+  .seg button {
+    padding: 4px 11px; font-size: 12px; color: var(--text-secondary);
+    border-radius: 0;
+  }
+  .seg button[aria-pressed="true"] { background: var(--chat-user-bg); color: var(--text-primary); font-weight: 500; }
+  .seg button + button { border-left: 1px solid var(--border); }
+  select.lens {
+    font: inherit; font-size: 12px; color: var(--text-secondary);
+    background: var(--surface); border: 1px solid var(--border); border-radius: 7px;
+    padding: 4px 8px;
+  }
+  .head-right { margin-left: auto; display: flex; align-items: center; gap: 14px; }
+  .clock { font-size: 12px; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+  .fresh { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--text-muted); }
+  .fresh .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green-dot); }
+  .synthetic {
+    font-size: 11px; color: var(--text-muted); border: 1px dashed var(--border);
+    border-radius: 6px; padding: 2px 8px; white-space: nowrap;
+  }
+  .theme-btn { color: var(--text-muted); font-size: 12px; padding: 4px 6px; border-radius: 6px; }
+  .theme-btn:hover { color: var(--text-primary); }
+
+  /* ---------- shell ---------- */
+  .shell { display: flex; flex: 1; min-height: 0; }
+  main {
+    flex: 1; min-width: 0; overflow-y: auto; padding: 20px 24px 48px;
+  }
+  .bands { max-width: 880px; margin: 0 auto; display: flex; flex-direction: column; gap: 28px; }
+
+  .band-head {
+    display: flex; align-items: baseline; gap: 10px; margin-bottom: 10px;
+  }
+  .band-head h2 { font-size: 13px; font-weight: 500; }
+  .band-head .horizon { font-size: 11px; color: var(--text-muted); }
+  .horizon-select {
+    font: inherit; font-size: 11px; color: var(--text-secondary);
+    background: transparent; border: 1px solid var(--border); border-radius: 6px;
+    padding: 2px 6px; cursor: pointer;
+  }
+  .horizon-select:hover { color: var(--text-primary); border-color: var(--text-muted); }
+
+  /* ---------- metric tiles ---------- */
+  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px; }
+  .tile {
+    text-align: left; background: var(--surface);
+    border: 1px solid var(--border); border-radius: 9px;
+    padding: 12px 14px 11px;
+    display: flex; flex-direction: column; gap: 6px;
+    transition: border-color 140ms ease-out;
+  }
+  .tile:hover { border-color: var(--text-muted); }
+  .tile .label { font-size: 12px; color: var(--text-secondary); }
+  .tile .value-row { display: flex; align-items: baseline; gap: 7px; flex-wrap: wrap; }
+  .tile .value {
+    font-size: 23px; font-weight: 500; letter-spacing: -0.01em;
+    font-variant-numeric: tabular-nums; line-height: 1.1;
+  }
+  .tile .unit { font-size: 11px; color: var(--text-muted); }
+  .tile .trend { font-size: 12px; color: var(--text-secondary); }
+  .tile .meta { font-size: 11px; color: var(--text-muted); display: flex; gap: 10px; flex-wrap: wrap; }
+  .tile .spark { margin-top: 2px; }
+  .tile .spark svg { display: block; }
+  .tile .deviation-note { font-size: 11px; }
+
+  .tile.amber { background: var(--bg-warning); border-color: color-mix(in oklab, var(--amber-line) 34%, var(--border)); }
+  .tile.amber .value, .tile.amber .deviation-note { color: var(--amber-text); }
+  .tile.red { background: var(--bg-danger); border-color: color-mix(in oklab, var(--red-line) 34%, var(--border)); }
+  .tile.red .value, .tile.red .deviation-note { color: var(--red-text); }
+
+  .lens-note { font-size: 11px; color: var(--text-muted); margin-top: 8px; }
+
+  /* ---------- staffing ---------- */
+  .panel {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 9px;
+    padding: 14px 16px;
+  }
+  .staffing-scroll { overflow-x: auto; }
+  .staffing-scroll svg { display: block; }
+  .staffing-legend { display: flex; gap: 16px; margin-top: 8px; font-size: 11px; color: var(--text-muted); flex-wrap: wrap; }
+  .staffing-legend .key { display: inline-flex; align-items: center; gap: 6px; }
+  .staffing-legend .swatch { width: 14px; height: 0; border-top: 2px solid var(--text-secondary); }
+  .staffing-legend .swatch.capacity { border-top-style: dashed; border-top-color: var(--text-muted); }
+  .staffing-legend .swatch.gap { width: 12px; height: 10px; border: none; background: var(--bg-warning); outline: 1px solid color-mix(in oklab, var(--amber-line) 30%, transparent); }
+
+  /* ---------- signals ---------- */
+  .signals { display: flex; flex-direction: column; gap: 8px; }
+  .signal {
+    display: flex; align-items: flex-start; gap: 10px;
+    background: var(--surface); border: 1px solid var(--border); border-radius: 9px;
+    padding: 11px 14px; text-align: left; width: 100%;
+  }
+  .signal .sev { flex: none; margin-top: 3px; }
+  .signal .body { flex: 1; min-width: 0; }
+  .signal .text { font-size: 13px; color: var(--text-primary); }
+  .signal .sig-meta { font-size: 11px; color: var(--text-muted); margin-top: 3px; display: flex; gap: 10px; flex-wrap: wrap; }
+  .signal .ack {
+    flex: none; font-size: 11px; color: var(--text-muted);
+    border: 1px solid var(--border); border-radius: 6px; padding: 3px 9px;
+    align-self: center;
+  }
+  .signal .ack:hover { color: var(--text-primary); border-color: var(--text-muted); }
+  .signal.red .text { color: var(--red-text); }
+  .signal.amber .text { color: var(--amber-text); }
+  .ack-count { font-size: 11px; color: var(--text-muted); padding: 2px 2px 0; }
+  .signals-foot { font-size: 11px; color: var(--text-muted); margin-top: 8px; }
+
+  /* ---------- chat pane ---------- */
+  .chat {
+    width: 372px; flex: none; border-left: 1px solid var(--border);
+    background: var(--surface);
+    display: flex; flex-direction: column; min-height: 0;
+  }
+  .chat-head {
+    padding: 12px 16px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: baseline; justify-content: space-between; gap: 8px;
+  }
+  .chat-head .t { font-size: 13px; font-weight: 500; }
+  .chat-head .s { font-size: 11px; color: var(--text-muted); }
+  .chat-close { display: none; }
+  .chat-log { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+  .msg { max-width: 100%; font-size: 12.5px; }
+  .msg.user {
+    align-self: flex-end; background: var(--chat-user-bg); color: var(--text-primary);
+    border-radius: 11px 11px 3px 11px; padding: 8px 12px; max-width: 88%;
+  }
+  .msg.assistant { color: var(--text-primary); }
+  .msg.assistant p + p { margin-top: 6px; }
+  .msg .src { font-size: 10.5px; color: var(--text-muted); margin-top: 6px; }
+  .msg table {
+    border-collapse: collapse; margin: 8px 0 2px; font-size: 11.5px; width: 100%;
+    font-variant-numeric: tabular-nums;
+  }
+  .msg th { font-weight: 500; color: var(--text-secondary); text-align: left; }
+  .msg th, .msg td { border-bottom: 1px solid var(--border); padding: 4px 8px 4px 0; }
+  .msg tr:last-child td { border-bottom: none; }
+  .msg td.hit-amber { color: var(--amber-text); }
+  .msg td.hit-red { color: var(--red-text); }
+  .msg .bar { display: inline-block; height: 7px; background: var(--spark); border-radius: 2px; vertical-align: middle; }
+  .msg .bar.red { background: var(--red-line); }
+  .deck-btn {
+    font-size: 11px; color: var(--text-secondary); border: 1px solid var(--border);
+    border-radius: 6px; padding: 3px 10px; margin-top: 8px;
+  }
+  .deck-btn:hover { color: var(--text-primary); border-color: var(--text-muted); }
+  .deck-btn.added { color: var(--text-muted); border-style: dashed; cursor: default; }
+  .chat-empty { color: var(--text-muted); font-size: 12px; padding: 4px 2px; }
+  .chat-empty .hint { margin-bottom: 10px; }
+  .suggest { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
+  .suggest button {
+    font-size: 12px; color: var(--text-secondary); border: 1px solid var(--border);
+    border-radius: 8px; padding: 6px 11px; text-align: left;
+  }
+  .suggest button:hover { color: var(--text-primary); border-color: var(--text-muted); }
+  .typing { color: var(--text-muted); font-size: 12px; }
+  .typing::after { content: "…"; animation: ell 1.2s steps(4) infinite; }
+  @keyframes ell { 0% { content: ""; } 25% { content: "."; } 50% { content: ".."; } 75% { content: "…"; } }
+  .chat-input { border-top: 1px solid var(--border); padding: 10px 12px; display: flex; gap: 8px; }
+  .chat-input input {
+    flex: 1; font: inherit; font-size: 12.5px; color: var(--text-primary);
+    background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
+    padding: 7px 11px;
+  }
+  .chat-input input::placeholder { color: var(--text-muted); }
+  .chat-input button.send {
+    font-size: 12px; font-weight: 500; color: var(--text-secondary);
+    border: 1px solid var(--border); border-radius: 8px; padding: 0 13px;
+  }
+  .chat-input button.send:hover { color: var(--text-primary); border-color: var(--text-muted); }
+
+  /* floating ask button (mobile) */
+  .ask-fab {
+    display: none; position: fixed; right: 16px; bottom: 16px;
+    background: var(--text-primary); color: var(--bg);
+    border-radius: 999px; padding: 10px 18px; font-size: 13px; font-weight: 500;
+    box-shadow: 0 4px 16px rgb(0 0 0 / 0.18);
+    z-index: var(--z-sheet);
+  }
+  .sheet-backdrop {
+    display: none; position: fixed; inset: 0; background: rgb(0 0 0 / 0.35);
+    z-index: var(--z-sheet-backdrop);
+  }
+
+  footer {
+    padding: 10px 20px 16px; font-size: 11px; color: var(--text-muted);
+    max-width: 880px; margin: 0 auto; width: 100%;
+  }
+
+  /* 16:9 presentation layout — all four bands on one screen, no scroll */
+  @media (min-width: 1150px) {
+    main { padding: 18px 24px 12px; }
+    .bands {
+      max-width: none;
+      display: grid;
+      grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+      grid-template-areas: "b1 b1" "b2 b2" "b3 b4";
+      align-content: start;
+      column-gap: 22px; row-gap: 24px;
+    }
+    #sec-b1 { grid-area: b1; }
+    #sec-b2 { grid-area: b2; }
+    #sec-b3 { grid-area: b3; min-width: 0; }
+    #sec-b4 { grid-area: b4; min-width: 0; }
+    .tile { padding: 14px 16px 13px; }
+    .tile .value { font-size: 26px; }
+    footer { max-width: none; padding: 10px 0 0; }
+    .chat { width: clamp(340px, 23vw, 440px); }
+  }
+
+  @media (max-width: 900px) {
+    .chat {
+      position: fixed; right: 0; bottom: 0; left: 0; top: auto;
+      width: auto; height: 78dvh;
+      border-left: none; border-top: 1px solid var(--border);
+      border-radius: 14px 14px 0 0;
+      transform: translateY(105%);
+      transition: transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
+      z-index: var(--z-sheet);
+    }
+    .chat.open { transform: translateY(0); }
+    .chat-close {
+      display: block; font-size: 12px; color: var(--text-muted);
+      border: 1px solid var(--border); border-radius: 6px; padding: 2px 9px;
+    }
+    .ask-fab { display: block; }
+    body.sheet-open .ask-fab { display: none; }
+    body.sheet-open .sheet-backdrop { display: block; }
+    main { padding: 14px 14px 90px; }
+    header { gap: 10px; padding: 10px 14px; }
+    .head-right { gap: 10px; }
+    .synthetic { display: none; }
+    .clock { display: none; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .chat { transition: none; }
+    .typing::after { animation: none; content: "…"; }
+    .tile { transition: none; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <span class="brand">Mission Control<span class="sub">Operations</span></span>
+    <div class="seg" role="group" aria-label="Campus">
+      <button id="site-west" aria-pressed="true">West</button>
+    </div>
+    <select class="lens" id="lens" aria-label="Stakeholder lens">
+      <option value="physician">Physician / APC lens</option>
+      <option value="nursing">Nursing lens</option>
+      <option value="hospitalist">Hospitalist lens</option>
+      <option value="gme">GME lens</option>
+    </select>
+    <div class="head-right">
+      <span class="synthetic">Synthetic data — demo</span>
+      <span class="clock" id="clock">—</span>
+      <span class="fresh"><span class="dot" id="fresh-dot"></span><span id="fresh-label">Data 14:28</span></span>
+      <button class="theme-btn" id="theme-toggle" aria-label="Toggle dark mode">◐</button>
+    </div>
+  </header>
+
+  <div class="shell">
+    <main>
+      <div class="bands">
+        <section id="sec-b1" aria-labelledby="b1h">
+          <div class="band-head"><h2 id="b1h">Time-critical care</h2><span class="horizon">30-day rolling</span></div>
+          <div class="tiles" id="band1"></div>
+        </section>
+
+        <section id="sec-b2" aria-labelledby="b2h">
+          <div class="band-head"><h2 id="b2h">Flow Indicators</h2><span class="horizon">today · 12h trend</span></div>
+          <div class="tiles" id="band2"></div>
+          <div class="lens-note" id="lens-note" hidden></div>
+        </section>
+
+        <section id="sec-b3" aria-labelledby="b3h">
+          <div class="band-head">
+            <h2 id="b3h">Staffing</h2>
+            <select class="horizon-select" id="staff-range" aria-label="Staffing time range">
+              <option value="today">today's schedule</option>
+              <option value="7d">last 7 days</option>
+              <option value="30d">last 30 days</option>
+              <option value="60d">last 60 days</option>
+              <option value="90d">last 90 days</option>
+              <option value="1y">last year</option>
+            </select>
+          </div>
+          <div class="panel">
+            <div class="staffing-scroll" id="staffing"></div>
+            <div class="staffing-legend">
+              <span class="key"><span class="swatch"></span>Census</span>
+              <span class="key"><span class="swatch capacity"></span>Coverage capacity (scheduled FTE)</span>
+              <span class="key"><span class="swatch gap"></span>Gap window</span>
+              <span id="staff-summary"></span>
+            </div>
+          </div>
+        </section>
+
+        <section id="sec-b4" aria-labelledby="b4h">
+          <div class="band-head"><h2 id="b4h">Signals</h2><span class="horizon" id="sig-horizon">generated 14:28</span></div>
+          <div class="signals" id="band4"></div>
+          <div class="signals-foot">Signals are generated by Claude from Lane A aggregates on each ingestion. Tap a signal to drill down; acknowledge to collapse.</div>
+        </section>
+      </div>
+      <footer>Mock — Phase 0 scaffold. All values synthetic per <code>metrics.sample.json</code>. No patient-level data; n&lt;11 suppressed at export. v0.1.0</footer>
+    </main>
+
+    <div class="sheet-backdrop" id="backdrop"></div>
+
+    <aside class="chat" id="chat" aria-label="Chat with data">
+      <div class="chat-head">
+        <div>
+          <div class="t">Ask the data</div>
+          <div class="s">Claude · answers via metrics tools, never memory</div>
+        </div>
+        <button class="chat-close" id="chat-close">Close</button>
+      </div>
+      <div class="chat-log" id="chat-log">
+        <div class="chat-empty" id="chat-empty">
+          <div class="hint">Tap any tile or signal to drill down, or start with:</div>
+          <div class="suggest">
+            <button data-prompt="Why is boarding red right now?">Why is boarding red right now?</button>
+            <button data-prompt="Show me the STEMI off-hours pattern across the last quarter">STEMI off-hours pattern</button>
+            <button data-prompt="Draft the monthly ED ops review deck from current data">Draft the monthly ops deck</button>
+          </div>
+        </div>
+      </div>
+      <div class="chat-input">
+        <input id="chat-text" type="text" placeholder="Ask about any metric…" aria-label="Ask about any metric">
+        <button class="send" id="chat-send">Send</button>
+      </div>
+    </aside>
+  </div>
+
+  <button class="ask-fab" id="ask-fab">Ask</button>
+</div>
+
+<script>
+/* ---------------- synthetic data (mirrors data/metrics.sample.json) ---------------- */
+const SITES = {
+  west: {
+    label: "West",
+    generated_at: "14:28",
+    band1: [
+      { id: "stroke_door_to_ct", label: "Stroke · door to CT", value: 22, unit: "min median", n: 14, target: "≤25", state: "ok", trend: "→",
+        prompt: "Break down stroke door-to-CT for the last 30 days — where is the time going?" },
+      { id: "stemi_door_to_balloon", label: "STEMI · door to balloon", value: 96, unit: "min median", n: 6, target: "≤90", state: "red", trend: "↑",
+        note: "2 cases over target", prompt: "Which STEMI cases missed door-to-balloon this month?" },
+      { id: "sepsis_3h_bundle", label: "Sepsis · 3-hr bundle", value: "86%", unit: "31/36", n: 36, target: "≥90%", state: "amber", trend: "↑",
+        note: "improving, below target", prompt: "What's driving sepsis 3-hour bundle misses this month?" }
+    ],
+    band2: [
+      { id: "census", label: "Census", value: 74, unit: "of 82 beds", target: "capacity 82", state: "ok", trend: "↑",
+        spark: [58,60,59,63,67,66,70,71,72,73,74,74],
+        prompt: "Show census by hour and by area for today" },
+      { id: "boarding", label: "Boarding", value: 19, unit: "pts · 142 bed-hrs", target: "baseline 47 bed-hrs", state: "red", trend: "↑",
+        note: "3× 30-day baseline", spark: [6,7,8,10,12,14,15,16,17,18,19,19],
+        prompt: "Walk me through the admission cascade behind today's boarding" },
+      { id: "lwbs", label: "LWBS", value: "1.4%", unit: "", target: "<2%", state: "ok", trend: "→",
+        spark: [1.1,1.2,1.1,1.3,1.2,1.4,1.3,1.3,1.4,1.4,1.4,1.4],
+        prompt: "Show LWBS and AMA counts for today by hour" },
+      { id: "door_to_doc", label: "Door to doc", value: 24, unit: "min median", target: "≤30", state: "ok", trend: "→",
+        spark: [22,21,23,22,20,22,21,22,23,24,24,24],
+        prompt: "Break door-to-doc into arrival-to-room and room-to-first-contact" }
+    ],
+    lensExtras: {
+      nursing: [
+        { id: "arrival_to_room", label: "Arrival to room", value: 14, unit: "min median", target: "≤18", state: "ok", trend: "→",
+          spark: [13,14,13,15,14,13,14,14,15,14,14,14], lens: true,
+          prompt: "Show arrival-to-room by hour and by area for today" },
+        { id: "ua_collect", label: "UA specimen to collect", value: 38, unit: "min median", target: "≤35", state: "ok", trend: "→",
+          spark: [36,35,37,36,38,37,38,39,38,38,38,38], lens: true,
+          prompt: "Trend UA specimen-to-collect over the last two weeks" }
+      ],
+      hospitalist: [
+        { id: "holdover_cascade", label: "ED call to IP order", value: 41, unit: "min median", target: "≤30", state: "amber", trend: "↑",
+          note: "cascade link slowest today", spark: [28,30,31,33,35,36,38,39,40,41,41,41], lens: true,
+          prompt: "Walk me through the admission cascade behind today's boarding" }
+      ],
+      gme: [
+        { id: "resident_flow", label: "Pts per resident hr", value: 1.6, unit: "today", target: "context", state: "ok", trend: "→",
+          spark: [1.3,1.4,1.4,1.5,1.5,1.6,1.6,1.6,1.6,1.6,1.6,1.6], lens: true,
+          prompt: "Show today's flow context relevant to resident shifts" }
+      ]
+    },
+    staffing: {
+      hours: ["07","08","09","10","11","12","13","14","15","16","17","18","19","20","21","22","23"],
+      fte:    [4,4,4,5,5,6,6,6,6,6,6,5,5,5,4,4,4],
+      census: [52,55,60,66,71,74,75,74,76,78,77,74,70,66,62,58,54],
+      ptsPerFte: 13,
+      gaps: [{ from: 8, to: 12, label: "−1.5 FTE · 15:00–19:00" }]
+    },
+    signals: [
+      { id: "sig-01", severity: "red",
+        text: "Boarding spike correlates with inpatient discharge slowdown — 61% of today's boarders are waiting on two units.",
+        meta: "generated 14:28 · unacknowledged",
+        prompt: "Tell me more about the boarding signal and its connection to the inpatient discharge pattern" },
+      { id: "sig-02", severity: "amber",
+        text: "Both missed door-to-balloon cases occurred 02:00–05:00 — third consecutive month with an off-hours miss.",
+        meta: "generated 14:28 · repeat ×3 months",
+        prompt: "Show me the STEMI off-hours pattern across the last quarter" },
+      { id: "sig-03", severity: "info",
+        text: "Monthly ops review due Friday — generate the deck from current data.",
+        meta: "generated 14:28",
+        prompt: "Draft the monthly ED ops review deck from current data" }
+    ]
+  }
+};
+/* ---------------- canned assistant responses (mock of MCP-tool answers) ---------------- */
+const RESPONSES = [
+  { match: /boarding|admission cascade|discharge/i, html: `
+      <p>Boarding is at <strong>19 patients / 142 bed-hours</strong> — 3× the 30-day baseline of 47. The admission cascade shows the delay concentrated downstream of the ED:</p>
+      <table>
+        <tr><th>Interval</th><th>Median</th><th></th></tr>
+        <tr><td>Arrival → ED call</td><td>28 min</td><td><span class="bar" style="width:22px"></span></td></tr>
+        <tr><td>ED call → IP order</td><td>41 min</td><td><span class="bar" style="width:33px"></span></td></tr>
+        <tr><td>IP order → rollover</td><td>35 min</td><td><span class="bar" style="width:28px"></span></td></tr>
+        <tr><td class="hit-red">Rollover → bed assign</td><td class="hit-red">3.4 hr</td><td><span class="bar red" style="width:96px"></span></td></tr>
+        <tr><td>Bed assign → depart</td><td>44 min</td><td><span class="bar" style="width:35px"></span></td></tr>
+      </table>
+      <p>Rollover-to-bed-assign is 4× its 30-day median. 61% of current boarders are assigned to two inpatient units whose discharge orders today are running ~2 hours later than their weekday norm.</p>
+      <p class="src">get_interval_cascade · list_outliers · today, site West · extracted 14:28</p>
+      <button class="deck-btn">Add to deck</button>` },
+  { match: /stemi|door.?to.?balloon|off.?hours/i, html: `
+      <p>Over the last quarter, 5 of 19 STEMI cases exceeded 90-minute door-to-balloon. All 5 arrived between 02:00 and 05:00 — the third consecutive month with at least one off-hours miss.</p>
+      <table>
+        <tr><th>Shift period</th><th>Cases</th><th>Median D2B</th><th>&gt;90 min</th></tr>
+        <tr><td>Day (07–15)</td><td>8</td><td>74 min</td><td>0</td></tr>
+        <tr><td>Evening (15–23)</td><td>6</td><td>81 min</td><td>0</td></tr>
+        <tr><td class="hit-red">Overnight (23–07)</td><td>5</td><td class="hit-red">104 min</td><td class="hit-red">5</td></tr>
+      </table>
+      <p>De-identified intervals only (Lane A). The dominant interval in overnight misses is activation-to-lab-ready, consistent with call-team response time rather than ED handling.</p>
+      <p class="src">get_case_intervals · get_signal_history · last 90d, site West · extracted 14:28</p>
+      <button class="deck-btn">Add to deck</button>` },
+  { match: /deck|ops review|monthly/i, html: `
+      <p>Drafting the monthly ops review from current data. Proposed outline:</p>
+      <p>1. Time-critical care — sepsis bundle recovering (86%, trending up); STEMI door-to-balloon breach with the off-hours pattern flagged for the staffing discussion.<br>
+      2. Flow — boarding excursion on 7/21 traced to inpatient discharge slowdown; LWBS and door-to-doc at target all month.<br>
+      3. Staffing — recurring 15:00–19:00 coverage gap vs. census curve.<br>
+      4. Signals log — 2 escalations, 1 acknowledged, decisions annotated.</p>
+      <p>I'll render this into the branded EM_District template (12 slides) — in the pilot this takes about two minutes.</p>
+      <p class="src">generate_deck · compare_periods · MTD, site West</p>
+      <button class="deck-btn">Generate deck (mock)</button>` },
+  { match: /sepsis/i, html: `
+      <p>Sepsis 3-hour bundle is at 86% (31/36) against a ≥90% target, up from 81% last month. Of the 5 misses, 4 failed on the fluid element (30 mL/kg crystalloid documentation); antibiotics-within-window held at 94%.</p>
+      <p>Recognition-based time-to-antibiotics median is 48 min (arrival-based: 66 min).</p>
+      <p class="src">get_metric · get_definitions · rolling 30d, site West · extracted 14:28</p>
+      <button class="deck-btn">Add to deck</button>` },
+  { match: /stroke|door.?to.?ct/i, html: `
+      <p>Stroke door-to-CT is at 22 min median (n=14), inside the ≤25 target. The anatomy: arrival-to-activation 6 min, activation-to-CT-start 16 min. Door-to-CT-result runs 41 min median against a ≤45 target. Last-known-well documentation is at 96%.</p>
+      <p class="src">get_metric · get_interval_cascade · rolling 30d · extracted 14:28</p>
+      <button class="deck-btn">Add to deck</button>` },
+  { match: /census|by area/i, html: `
+      <p>Census is 74 of 82 (90% occupancy), climbing through the afternoon as usual. By area: Main 58, Station 4 11, Fast Track 5. The 12h curve tracks the seasonal weekday pattern within normal variation — today's elevation is boarding-driven, not arrivals-driven (arrivals are at their 30-day norm).</p>
+      <p class="src">get_metric segment:area · today · extracted 14:28</p>
+      <button class="deck-btn">Add to deck</button>` },
+  { match: /lwbs|ama/i, html: `
+      <p>LWBS is 1.4% today (6 patients), under the 2% target; AMA count is 2. No hour exceeded 2 LWBS departures. LWBS historically follows door-to-doc with a ~2h lag — door-to-doc is stable at 24 min, so no pressure building.</p>
+      <p class="src">get_metric · today by hour · extracted 14:28</p>` },
+  { match: /door.?to.?doc|arrival.?to.?room|first.?contact/i, html: `
+      <p>Door-to-doc is 24 min median today (target ≤30). The anatomy: arrival-to-room 14 min, room-to-first-contact 10 min. Worst hour was 17:00 at 31 min, coinciding with the staffing gap window.</p>
+      <p class="src">get_metric · get_interval_cascade · today by hour · extracted 14:28</p>
+      <button class="deck-btn">Add to deck</button>` },
+  { match: /staffing|coverage|gap/i, html: `
+      <p>Today's coverage tracks census except 15:00–19:00, where scheduled capacity runs ~1.5 FTE under the census curve — the same window flagged 9 of the last 14 weekdays. Door-to-doc degrades ~7 min during this window versus the daily median.</p>
+      <p class="src">get_staffing_coverage · today · extracted 14:28</p>
+      <button class="deck-btn">Add to deck</button>` },
+  { match: /ua|specimen/i, html: `
+      <p>UA specimen-to-collect is 38 min median today against a ≤35 target — elevated but within normal variation for the last two weeks (range 35–39). It becomes a signal if the 7-day median crosses 40.</p>
+      <p class="src">get_metric · last 14d · extracted 14:28</p>` }
+];
+const FALLBACK = `
+  <p>In the pilot, I'd answer this by querying the metrics store directly (never from memory) and show the numbers with their definitions. This mock has canned answers for the tiles and signals on screen — tap any of them to see the pattern.</p>
+  <p class="src">mock · no live metrics server attached</p>`;
+
+/* ---------------- state ---------------- */
+let site = "west";
+let lens = "physician";
+let staffRange = "today";
+let acked = {};   // per-site arrays of signal ids
+
+const $ = (s) => document.querySelector(s);
+
+/* ---------------- sparkline ---------------- */
+function sparkline(values, cls) {
+  const w = 100, h = 26, pad = 2;
+  const min = Math.min(...values), max = Math.max(...values);
+  const span = (max - min) || 1;
+  const pts = values.map((v, i) => {
+    const x = pad + (i / (values.length - 1)) * (w - pad * 2);
+    const y = h - pad - ((v - min) / span) * (h - pad * 2);
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  }).join(" ");
+  const stroke = cls === "red" ? "var(--red-line)" : cls === "amber" ? "var(--amber-line)" : "var(--spark)";
+  return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" aria-hidden="true">
+    <polyline points="${pts}" fill="none" stroke="${stroke}" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>
+  </svg>`;
+}
+
+/* ---------------- tiles ---------------- */
+function tileHtml(m) {
+  const stateCls = m.state === "red" ? "red" : m.state === "amber" ? "amber" : "";
+  return `<button class="tile ${stateCls}" data-prompt="${m.prompt.replace(/"/g, "&quot;")}" aria-label="${m.label}, ${m.value} ${m.unit || ""}, target ${m.target}. Drill down in chat.">
+    <span class="label">${m.label}${m.lens ? ' <span style="color:var(--text-muted)">· lens</span>' : ""}</span>
+    <span class="value-row">
+      <span class="value">${m.value}</span>
+      <span class="unit">${m.unit || ""}</span>
+      <span class="trend" aria-hidden="true">${m.trend || ""}</span>
+    </span>
+    ${m.spark ? `<span class="spark">${sparkline(m.spark, stateCls)}</span>` : ""}
+    <span class="meta">
+      <span>target ${m.target}</span>
+      ${m.n ? `<span>n=${m.n}</span>` : ""}
+      ${m.note ? `<span class="deviation-note">${m.note}</span>` : ""}
+    </span>
+  </button>`;
+}
+
+/* ---------------- staffing chart ---------------- */
+/* Fixed demo "today" matching the synthetic dataset (2026-07-21). */
+const DEMO_TODAY = new Date(2026, 6, 21);
+
+function staffingSeries(range) {
+  const t = SITES[site].staffing;
+  if (range === "today") {
+    return {
+      labels: t.hours, census: t.census, capacity: t.fte.map(f => f * t.ptsPerFte),
+      colW: 36, tickEvery: 2, explicitGaps: t.gaps, unitWord: null
+    };
+  }
+  if (range === "1y") {
+    return {
+      labels: ["Aug","Sep","Oct","Nov","Dec","Jan","Feb","Mar","Apr","May","Jun","Jul"],
+      census:  [63, 65, 68, 70, 77, 79, 76, 72, 69, 67, 66, 71],
+      capacity:[74, 74, 74, 74, 74, 75, 75, 75, 74, 74, 74, 74],
+      colW: 66, tickEvery: 1, unitWord: "months"
+    };
+  }
+  const n = { "7d": 7, "30d": 30, "60d": 60, "90d": 90 }[range];
+  const labels = [], census = [], capacity = [];
+  for (let i = 0; i < n; i++) {
+    const d = new Date(DEMO_TODAY); d.setDate(DEMO_TODAY.getDate() - (n - 1 - i));
+    labels.push((d.getMonth() + 1) + "/" + d.getDate());
+    const dow = d.getDay();
+    const weekend = dow === 0 || dow === 6;
+    const c = 66 + 7 * Math.sin((dow - 2) * 0.85) + 3 * Math.sin(i * 0.37);
+    census.push(Math.round(weekend ? c - 6 : c));
+    capacity.push(weekend ? 64 : (i % 17 === 11 ? 66 : 73));
+  }
+  const colW = Math.max(8, Math.min(120, Math.round(760 / (n - 1))));
+  const tickEvery = { "7d": 1, "30d": 4, "60d": 8, "90d": 12 }[range];
+  return { labels, census, capacity, colW, tickEvery, unitWord: "days" };
+}
+
+function staffingChart(s) {
+  const colW = s.colW, padL = 30, padR = 12, padT = 12, padB = 24;
+  const last = s.labels.length - 1;
+  const w = padL + padR + colW * last;
+  const h = 150;
+  const lo = Math.min(...s.census, ...s.capacity), hi = Math.max(...s.census, ...s.capacity);
+  const yMin = Math.floor((lo - 4) / 10) * 10, yMax = Math.ceil((hi + 4) / 10) * 10;
+  const x = (i) => padL + i * colW;
+  const y = (v) => padT + (1 - (v - yMin) / (yMax - yMin)) * (h - padT - padB);
+
+  const censusPts = s.census.map((v, i) => `${x(i)},${y(v).toFixed(1)}`).join(" ");
+  let capPath = "", capPrevY = null;
+  s.capacity.forEach((v, i) => {
+    const cy = y(v).toFixed(1);
+    capPath += i === 0 ? `M ${x(i)} ${cy}` : ` L ${x(i) - colW / 2} ${capPrevY} L ${x(i) - colW / 2} ${cy} L ${x(i)} ${cy}`;
+    capPrevY = cy;
+  });
+
+  let gapRects = "", gapDesc = "no gap windows";
+  if (s.explicitGaps) {
+    gapRects = s.explicitGaps.map(g => {
+      const gx = x(g.from), gw = x(g.to) - x(g.from);
+      return `<rect x="${gx}" y="${padT}" width="${gw}" height="${h - padT - padB}" fill="var(--bg-warning)" stroke="color-mix(in oklab, var(--amber-line) 30%, transparent)" stroke-dasharray="3 3"/>
+        <text x="${gx + gw / 2}" y="${padT + 14}" text-anchor="middle" font-size="10" fill="var(--amber-text)">${g.label}</text>`;
+    }).join("");
+    if (s.explicitGaps.length) gapDesc = s.explicitGaps.map(g => "gap " + g.label).join(", ");
+  } else {
+    // shade contiguous runs where census exceeds scheduled coverage
+    const runs = [];
+    let start = null;
+    s.census.forEach((c, i) => {
+      if (c > s.capacity[i]) { if (start === null) start = i; }
+      else if (start !== null) { runs.push([start, i - 1]); start = null; }
+    });
+    if (start !== null) runs.push([start, last]);
+    gapRects = runs.map(([a, b]) => {
+      const gx = Math.max(padL, x(a) - colW / 2), gx2 = Math.min(w - padR, x(b) + colW / 2);
+      return `<rect x="${gx.toFixed(1)}" y="${padT}" width="${(gx2 - gx).toFixed(1)}" height="${h - padT - padB}" fill="var(--bg-warning)" stroke="color-mix(in oklab, var(--amber-line) 30%, transparent)" stroke-dasharray="3 3"/>`;
+    }).join("");
+    if (runs.length) gapDesc = runs.length + " gap window" + (runs.length > 1 ? "s" : "");
+  }
+
+  const ticks = s.labels.map((lbl, i) =>
+    i % s.tickEvery === 0 ? `<text x="${x(i)}" y="${h - 8}" text-anchor="middle" font-size="10" fill="var(--text-muted)">${lbl}</text>` : ""
+  ).join("");
+
+  const step = Math.max(10, Math.round((yMax - yMin) / 3 / 5) * 5);
+  const gridVals = [];
+  for (let v = yMin + step; v < yMax; v += step) gridVals.push(v);
+  const gridY = gridVals.map(v =>
+    `<line x1="${padL - 4}" y1="${y(v)}" x2="${w - padR}" y2="${y(v)}" stroke="var(--border)" stroke-width="1"/>
+     <text x="${padL - 8}" y="${y(v) + 3}" text-anchor="end" font-size="10" fill="var(--text-muted)">${v}</text>`
+  ).join("");
+
+  return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" role="img" aria-label="Coverage capacity versus census; ${gapDesc}">
+    ${gridY}${gapRects}
+    <path d="${capPath}" fill="none" stroke="var(--text-muted)" stroke-width="1.5" stroke-dasharray="5 4"/>
+    <polyline points="${censusPts}" fill="none" stroke="var(--text-secondary)" stroke-width="1.8" stroke-linejoin="round"/>
+    ${ticks}
+  </svg>`;
+}
+
+/* ---------------- signals ---------------- */
+function sevIcon(sev) {
+  if (sev === "red") return `<svg class="sev" width="14" height="14" viewBox="0 0 14 14" aria-label="Critical"><path d="M7 1.5 13 12H1Z" fill="var(--red-line)"/></svg>`;
+  if (sev === "amber") return `<svg class="sev" width="14" height="14" viewBox="0 0 14 14" aria-label="Warning"><circle cx="7" cy="7" r="5.4" fill="var(--amber-line)"/></svg>`;
+  return `<svg class="sev" width="14" height="14" viewBox="0 0 14 14" aria-label="Info"><circle cx="7" cy="7" r="5.4" fill="none" stroke="var(--text-muted)" stroke-width="1.4"/></svg>`;
+}
+
+/* ---------------- render ---------------- */
+function render() {
+  const d = SITES[site];
+  $("#band1").innerHTML = d.band1.map(tileHtml).join("");
+
+  const extras = (d.lensExtras[lens] || []);
+  $("#band2").innerHTML = d.band2.map(tileHtml).join("") + extras.map(tileHtml).join("");
+  const note = $("#lens-note");
+  if (lens !== "physician") {
+    const names = { nursing: "Nursing", hospitalist: "Hospitalist", gme: "GME" };
+    note.hidden = false;
+    note.textContent = extras.length
+      ? `${names[lens]} lens — ${extras.length === 1 ? "1 metric" : extras.length + " metrics"} elevated from drill-down level. Band 1 unchanged.`
+      : `${names[lens]} lens — no elevated metrics at this campus. Band 1 unchanged.`;
+  } else {
+    note.hidden = true;
+  }
+
+  const series = staffingSeries(staffRange);
+  $("#staffing").innerHTML = staffingChart(series);
+  const summary = $("#staff-summary");
+  if (series.unitWord) {
+    const below = series.census.filter((c, i) => c > series.capacity[i]).length;
+    summary.textContent = below
+      ? `${below} of ${series.labels.length} ${series.unitWord} below scheduled coverage`
+      : `all ${series.unitWord} at or above scheduled coverage`;
+  } else {
+    summary.textContent = "";
+  }
+  $("#sig-horizon").textContent = "generated " + d.generated_at;
+  $("#fresh-label").textContent = "Data " + d.generated_at;
+
+  const ackList = acked[site] || [];
+  const live = d.signals.filter(s => !ackList.includes(s.id));
+  const ackedCount = d.signals.length - live.length;
+  $("#band4").innerHTML =
+    live.map(s => `
+      <div class="signal ${s.severity}">
+        ${sevIcon(s.severity)}
+        <button class="body" data-prompt="${s.prompt.replace(/"/g, "&quot;")}" style="text-align:left">
+          <div class="text">${s.text}</div>
+          <div class="sig-meta"><span>${s.meta}</span><span>tap to drill down</span></div>
+        </button>
+        <button class="ack" data-ack="${s.id}">Acknowledge</button>
+      </div>`).join("") +
+    (ackedCount ? `<div class="ack-count">${ackedCount} acknowledged signal${ackedCount > 1 ? "s" : ""} today — <button data-unack style="text-decoration:underline;color:var(--text-muted);font-size:11px">show</button></div>` : "");
+}
+
+/* ---------------- chat ---------------- */
+function openChatIfSheet() {
+  if (window.matchMedia("(max-width: 900px)").matches) {
+    $("#chat").classList.add("open");
+    document.body.classList.add("sheet-open");
+  }
+}
+function closeSheet() {
+  $("#chat").classList.remove("open");
+  document.body.classList.remove("sheet-open");
+}
+function ask(prompt) {
+  const log = $("#chat-log");
+  const empty = $("#chat-empty");
+  if (empty) empty.remove();
+
+  const u = document.createElement("div");
+  u.className = "msg user";
+  u.textContent = prompt;
+  log.appendChild(u);
+
+  const t = document.createElement("div");
+  t.className = "typing";
+  t.textContent = "Querying metrics store";
+  log.appendChild(t);
+  log.scrollTop = log.scrollHeight;
+
+  const hit = RESPONSES.find(r => r.match.test(prompt));
+  setTimeout(() => {
+    t.remove();
+    const a = document.createElement("div");
+    a.className = "msg assistant";
+    a.innerHTML = hit ? hit.html : FALLBACK;
+    log.appendChild(a);
+    log.scrollTop = log.scrollHeight;
+  }, 650);
+
+  openChatIfSheet();
+}
+
+/* ---------------- events ---------------- */
+document.addEventListener("click", (e) => {
+  const p = e.target.closest("[data-prompt]");
+  if (p) { ask(p.dataset.prompt); return; }
+  const ackBtn = e.target.closest("[data-ack]");
+  if (ackBtn) {
+    (acked[site] ||= []).push(ackBtn.dataset.ack);
+    render();
+    return;
+  }
+  if (e.target.closest("[data-unack]")) { acked[site] = []; render(); return; }
+  const deck = e.target.closest(".deck-btn");
+  if (deck && !deck.classList.contains("added")) {
+    deck.classList.add("added");
+    deck.textContent = deck.textContent.startsWith("Generate") ? "Deck queued — mock" : "Added to deck draft";
+  }
+});
+
+$("#lens").addEventListener("change", (e) => { lens = e.target.value; render(); });
+$("#staff-range").addEventListener("change", (e) => { staffRange = e.target.value; render(); });
+
+function send() {
+  const inp = $("#chat-text");
+  const v = inp.value.trim();
+  if (!v) return;
+  inp.value = "";
+  ask(v);
+}
+$("#chat-send").addEventListener("click", send);
+$("#chat-text").addEventListener("keydown", (e) => { if (e.key === "Enter") send(); });
+
+$("#ask-fab").addEventListener("click", () => { $("#chat").classList.add("open"); document.body.classList.add("sheet-open"); });
+$("#chat-close").addEventListener("click", closeSheet);
+$("#backdrop").addEventListener("click", closeSheet);
+
+/* ---------------- clock & theme ---------------- */
+function tick() {
+  const now = new Date();
+  $("#clock").textContent = now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+}
+tick(); setInterval(tick, 15000);
+
+const savedTheme = localStorage.getItem("mc-theme");
+if (savedTheme) document.documentElement.dataset.theme = savedTheme;
+else if (window.matchMedia("(prefers-color-scheme: dark)").matches) document.documentElement.dataset.theme = "dark";
+$("#theme-toggle").addEventListener("click", () => {
+  const next = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
+  document.documentElement.dataset.theme = next;
+  localStorage.setItem("mc-theme", next);
+});
+
+render();
+</script>
+</body>
+</html>
