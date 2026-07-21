@@ -1,85 +1,80 @@
 # alfadiallo.com
 
-Personal landing page for Alfa O. Diallo, MD, MPH, FACEP.
+Personal site for Alfa O. Diallo, MD, MPH, FACEP. Static HTML, no build step, no dependencies. Edit a file, redeploy.
 
-A single self-contained static site: `index.html` with inline CSS/JS, no build step and no dependencies. Just edit the file and redeploy.
-
-## Files
+## Structure
 
 | File | Purpose |
 |------|---------|
-| `index.html` | The entire site |
-| `hero-1800.jpg`, `hero-1100.jpg` | Responsive hero image (optimized from `_IMG_8880.jpeg`) |
+| `index.html` | Public landing page. Hero only: name, tagline, contact links. |
+| `styles.css` | Shared styles for every page. Change the accent color here once. |
+| `my-shift-report.html` etc. | Venture pages. Unlisted (see below). |
+| `full-site.html` | The complete multi-section site, kept for later. **Not deployed.** |
+| `hero-1800.jpg`, `hero-1100.jpg` | Responsive hero image |
 | `og-image.jpg` | 1200x630 social share card |
-| `robots.txt`, `sitemap.xml` | SEO basics |
-| `vercel.json` | Clean URLs + cache headers (Vercel only) |
+| `robots.txt`, `sitemap.xml` | Only the homepage is listed |
+| `vercel.json` | Clean URLs + cache headers |
+| `.vercelignore` | Keeps `full-site.html` and the original photo out of the deploy |
+
+### Venture pages
+
+Six pages, one per venture. With `cleanUrls` on, each is served without the `.html`:
+
+| Page | URL |
+|------|-----|
+| My Shift Report | `/my-shift-report` |
+| VirtualSIM | `/virtualsim` |
+| Elevate | `/elevate` |
+| ED Operations Data Models | `/ed-operations-data-models` |
+| Smile Again | `/smile-again` |
+| EPI-Quotient | `/epi-quotient` |
+
+**These are unlisted, not private.** Nothing on the landing page links to them and each carries `<meta name="robots" content="noindex, nofollow">`, so they stay out of search results. Anyone with the URL can still open one. Don't put anything confidential on them.
+
+## Adding detail to a venture page
+
+Each page ships with the name, role, dates, a one-line description, and a facts panel. To expand one:
+
+1. Open the file and find the `ADD DETAIL HERE` comment.
+2. Write prose in `<p>` tags, or use `<h2>` plus the `<ul><li>` pattern (see `ed-operations-data-models.html` for a working example).
+3. Change the wrapper class from `class="v-grid v-grid--solo"` to `class="v-grid"`. That moves the facts panel into a right-hand column beside your text.
 
 ## Preview locally
 
-No tooling required. Either open `index.html` in a browser, or serve it:
-
 ```bash
 python3 -m http.server 8000
-# then visit http://localhost:8000
+# visit http://localhost:8000
 ```
 
 ## Deploy
 
-### Option A: Push to GitHub, host on Vercel (recommended)
+```bash
+npx vercel --prod
+```
 
-1. Create an empty repo on GitHub (no README/license, since this folder already has them). Then:
+Or connect the GitHub repo in the Vercel dashboard (**Settings -> Git**) so every `git push` deploys automatically.
 
-   ```bash
-   git remote add origin https://github.com/<your-username>/alfadiallo-com.git
-   git branch -M main
-   git push -u origin main
-   ```
+## Restoring the full site
 
-   Or with the GitHub CLI, from this folder:
+`full-site.html` holds the complete version (about, focus areas, ventures grid, writing, education, contact). To publish it:
 
-   ```bash
-   gh repo create alfadiallo-com --public --source=. --remote=origin --push
-   ```
+1. Remove `full-site.html` from `.vercelignore`.
+2. Replace `index.html` with it, or link to it.
 
-2. Go to [vercel.com/new](https://vercel.com/new), import the repo. Framework preset: **Other**. No build command, no output directory. Deploy.
+Note it still has its CSS inline, so it does not depend on `styles.css`.
 
-3. Every `git push` to `main` now redeploys automatically.
+## Custom domain
 
-### Option B: GitHub Pages
+The domain currently points at HostGator. To move it to Vercel, change these records at your DNS host:
 
-1. Push to GitHub (step 1 above).
-2. Repo **Settings -> Pages -> Build and deployment -> Source: Deploy from a branch**, branch `main`, folder `/ (root)`. Save.
-3. Add your custom domain under the same Pages settings (this creates a `CNAME` file in the repo).
+| Record | Host | Value |
+|--------|------|-------|
+| CNAME | `www` | `cname.vercel-dns.com` |
+| A | `@` | `76.76.21.21` |
 
-### Option C: Vercel with no GitHub (drag-and-drop or CLI)
+Confirm the exact values in the Vercel dashboard, since they can change.
 
-- Drag this folder onto [vercel.com/new](https://vercel.com/new), **or**
-- ```bash
-  npx vercel        # preview deploy
-  npx vercel --prod # production deploy
-  ```
-
-## Custom domain: www.alfadiallo.com
-
-At your domain registrar (where alfadiallo.com is registered), add the DNS records the host tells you to. Typical values:
-
-**Vercel**
-- Add `www.alfadiallo.com` in the Vercel project's Domains tab. Vercel will ask you to set:
-  - `www` -> `CNAME` -> `cname.vercel-dns.com`
-- To make the bare domain redirect to www, add `alfadiallo.com` too and Vercel provides an `A` record (currently `76.76.21.21`) or an ALIAS/ANAME.
-- HTTPS is provisioned automatically.
-
-**GitHub Pages**
-- `www` -> `CNAME` -> `<your-username>.github.io`
-- For the apex domain, GitHub's `A` records:
-  - `185.199.108.153`, `185.199.109.153`, `185.199.110.153`, `185.199.111.153`
-- Enable **Enforce HTTPS** in Pages settings once DNS resolves.
-
-> Always copy the exact records from your host's dashboard, since IPs and target hostnames can change. The values above are current defaults for reference.
-
-## Updating content
-
-Everything lives in `index.html`. To re-optimize the hero image after replacing the source photo (macOS):
+## Re-optimizing the hero image (macOS)
 
 ```bash
 sips -Z 1800 --setProperty formatOptions 80 source.jpg --out hero-1800.jpg
