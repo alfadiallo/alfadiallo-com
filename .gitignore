@@ -1,0 +1,9 @@
+# macOS
+.DS_Store
+
+# Local editor / tooling config
+.claude/
+.vercel/
+
+# Logs
+*.log
