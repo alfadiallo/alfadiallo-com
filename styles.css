@@ -108,6 +108,43 @@ p { margin: 0; }
 .hero-name { position: absolute; bottom: 28px; right: 24px; z-index: 2; color: rgba(255,255,255,.62); font-size: 12.5px; letter-spacing: .06em; }
 
 /* ==========================================================================
+   Projects index (/projects)
+   ========================================================================== */
+.p-head { padding: clamp(56px, 9vw, 104px) 0 clamp(36px, 5vw, 56px); }
+.p-head h1 { font-size: clamp(2.3rem, 6vw, 3.9rem); letter-spacing: -.035em; }
+.p-head .lede {
+  margin-top: 20px; color: var(--ink-soft);
+  font-size: clamp(1.05rem, 2vw, 1.25rem); max-width: 54ch;
+}
+
+.p-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px;
+  padding-bottom: clamp(56px, 8vw, 96px);
+}
+.p-card {
+  background: var(--card); border: 1px solid var(--line); border-radius: 16px;
+  padding: 26px 24px 22px; display: flex; flex-direction: column; min-height: 232px;
+  box-shadow: var(--shadow);
+  transition: transform .22s cubic-bezier(.16,1,.3,1), border-color .22s;
+}
+.p-card:hover { transform: translateY(-4px); border-color: color-mix(in srgb, var(--accent) 55%, var(--line)); }
+.p-card:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.p-card .top { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.p-card h2 { font-size: 1.24rem; letter-spacing: -.02em; }
+.p-card .yr { font-size: 12.5px; color: var(--ink-soft); font-variant-numeric: tabular-nums; flex: none; }
+.p-card .role {
+  margin-top: 4px; font-size: 12.5px; letter-spacing: .05em;
+  text-transform: uppercase; color: var(--accent); font-weight: 500;
+}
+.p-card p { margin-top: 14px; color: var(--ink-soft); font-size: .99rem; line-height: 1.55; }
+.p-card .go {
+  margin-top: auto; padding-top: 20px; display: inline-flex; align-items: center; gap: 8px;
+  font-size: 14px; font-weight: 500; color: var(--ink);
+}
+.p-card .go svg { width: 15px; height: 15px; transition: transform .22s; }
+.p-card:hover .go svg { transform: translateX(3px); }
+
+/* ==========================================================================
    Venture subpages
    ========================================================================== */
 .page-nav { border-bottom: 1px solid var(--line-2); }
@@ -188,9 +225,16 @@ footer.foot .mini a { color: var(--ink-soft); font-size: 14px; transition: color
 footer.foot .mini a:hover { color: var(--accent); }
 
 /* ---------- Responsive ---------- */
+@media (max-width: 900px) {
+  .p-grid { grid-template-columns: repeat(2, 1fr); }
+}
 @media (max-width: 860px) {
   .v-grid { grid-template-columns: 1fr; }
   .v-grid--solo .v-facts { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 620px) {
+  .p-grid { grid-template-columns: 1fr; }
+  .p-card { min-height: 0; }
 }
 @media (max-width: 480px) {
   .v-grid--solo .v-facts { grid-template-columns: 1fr; }
@@ -203,5 +247,5 @@ footer.foot .mini a:hover { color: var(--accent); }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .social, .theme-toggle, .back { transition: none; }
+  .social, .theme-toggle, .back, .p-card, .p-card .go svg { transition: none; }
 }
