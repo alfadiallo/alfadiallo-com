@@ -90,7 +90,8 @@ p { margin: 0; }
 .hero .wrap { position: relative; z-index: 2; width: 100%; padding-bottom: 74px; padding-top: 120px; }
 .hero-inner { max-width: 760px; color: #fff; }
 .hero .eyebrow { color: rgba(255,255,255,.82); }
-.hero h1 { font-size: clamp(2.5rem, 6.4vw, 4.4rem); letter-spacing: -.035em; }
+/* Short two-word headline, so it scales up to carry the full-height hero. */
+.hero h1 { font-size: clamp(3.25rem, 10vw, 7.5rem); letter-spacing: -.04em; }
 .hero h1 .accent { color: #74eac0; }
 .hero p.lede { margin-top: 22px; font-size: clamp(1.05rem, 2vw, 1.3rem); line-height: 1.5; color: rgba(255,255,255,.92); max-width: 42ch; font-weight: 400; }
 .hero .links { margin-top: 34px; display: flex; flex-wrap: wrap; gap: 12px; }
