@@ -80,14 +80,18 @@ p { margin: 0; }
 /* ==========================================================================
    Landing page (hero only)
    ========================================================================== */
-.hero { position: relative; min-height: 100dvh; display: flex; align-items: flex-end; overflow: hidden; }
+.hero { position: relative; min-height: 100dvh; display: flex; align-items: center; overflow: hidden; }
 .hero-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 60% 45%; z-index: 0; }
+/* Text sits centered and left, over bright sky, so the scrim leans left to
+   keep white type well above WCAG AA against the photo. */
 .hero-scrim { position: absolute; inset: 0; z-index: 1;
   background:
-    linear-gradient(to top, rgba(8,10,14,.74) 0%, rgba(8,10,14,.32) 34%, rgba(8,10,14,.05) 60%, rgba(8,10,14,.20) 100%),
-    linear-gradient(to right, rgba(8,10,14,.44) 0%, rgba(8,10,14,0) 55%);
+    linear-gradient(to right, rgba(8,10,14,.72) 0%, rgba(8,10,14,.46) 38%, rgba(8,10,14,0) 72%),
+    linear-gradient(to top, rgba(8,10,14,.55) 0%, rgba(8,10,14,.26) 45%, rgba(8,10,14,.20) 100%);
 }
-.hero .wrap { position: relative; z-index: 2; width: 100%; padding-bottom: 74px; padding-top: 120px; }
+/* Wider container plus a smaller inset shifts the block left of the page grid. */
+.hero .wrap { position: relative; z-index: 2; width: 100%; max-width: 1280px;
+  padding: 96px clamp(24px, 3vw, 40px); }
 .hero-inner { max-width: 760px; color: #fff; }
 .hero .eyebrow { color: rgba(255,255,255,.82); }
 /* Short two-word headline, so it scales up to carry the full-height hero. */
@@ -157,6 +161,18 @@ p { margin: 0; }
 .v-facts div { padding: 17px 0; border-bottom: 1px solid var(--line-2); }
 .v-facts dt { font-size: 12px; letter-spacing: .11em; text-transform: uppercase; color: var(--ink-soft); }
 .v-facts dd { margin: 5px 0 0; font-size: 1.02rem; font-weight: 500; }
+
+/* Weekly progress page (/progress). Entries are generated — see progress.html. */
+.wk-feed { max-width: 720px; }
+.wk { padding: 34px 0 40px; border-top: 1px solid var(--line); }
+.wk:first-child { border-top: 0; padding-top: 0; }
+.wk h2 { font-size: 1.55rem; letter-spacing: -.02em; }
+.wk h3 {
+  margin: 30px 0 4px; font-size: 12.5px; letter-spacing: .13em;
+  text-transform: uppercase; font-weight: 500; color: var(--accent);
+}
+.wk ul { margin-top: 6px; }
+.wk-empty { color: var(--ink-soft); }
 
 .v-cta { background: var(--paper-2); padding: clamp(56px, 8vw, 88px) 0; border-top: 1px solid var(--line-2); }
 .v-cta h2 { font-size: clamp(1.6rem, 3.4vw, 2.3rem); letter-spacing: -.025em; }
