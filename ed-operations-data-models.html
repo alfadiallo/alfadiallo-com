@@ -57,34 +57,33 @@
     <div class="wrap">
       <div class="v-grid">
         <div class="v-prose">
-          <!-- ================================================================
-               ADD DETAIL HERE.
-               Write prose in <p> tags, or use <h2> + <ul><li> for lists.
-               Worth covering: the problem it solves, who uses it, where it
-               stands today, and what is next.
-
-               IMPORTANT: once you add content here, change the wrapper class
-               above from "v-grid v-grid--solo" to just "v-grid" so the facts
-               panel moves into the right-hand column.
-               ================================================================ -->
+          <h2>The problem</h2>
+          <p>Emergency departments generate mountains of data, but almost none of it arrives in a form a leader can act on. The questions that decide how a department runs &mdash; does staffing match when patients actually arrive, where do patients wait longest, who leaves before care is complete &mdash; go unanswered, not because the data doesn't exist, but because nobody has shaped it into an answer.</p>
+          <p>These models were built inside a large hospital system to close that gap. Each follows the same philosophy: start from minimal raw inputs &mdash; often just a handful of timestamps &mdash; and end in a simple dashboard a leader can read at a glance.</p>
 
           <h2>The models</h2>
           <ul>
-            <li><strong>P2P</strong></li>
-            <li><strong>TTM</strong></li>
-            <li><strong>VeLO</strong></li>
-            <li><strong>C3</strong></li>
-            <li><strong>Bamboo</strong></li>
-            <li><strong>R2D2</strong></li>
-            <li><strong>MSR</strong></li>
-            <li><strong>LBCC</strong></li>
+            <li><strong>P2P &mdash; Patient to Provider.</strong> Four timestamps become the three phases of every visit &mdash; arriving, being treated, departing &mdash; and a picture of department load by hour.</li>
+            <li><strong>R2D2 &mdash; Resources to Demand.</strong> Patients arriving per hour against the staff on hand, showing exactly when coverage and demand fall out of step.</li>
+            <li><strong>LBCC &mdash; Left Before Completion of Care.</strong> Who walks out before care is finished &mdash; when, at what acuity, and with what complaint.</li>
+            <li><strong>C3 &mdash; Chief Complaint Categorization.</strong> Thousands of free-text visit reasons sorted into meaningful buckets for flow and utilization analysis.</li>
+            <li><strong>TTM &mdash; Time to Manage.</strong> How imaging decisions ripple into a patient's length of stay.</li>
+            <li><strong>VeLO &mdash; Velocity.</strong> Predictive modeling from historical patterns: what volume and acuity a given shift is likely to bring, so staffing can anticipate rather than react.</li>
+            <li><strong>Bamboo.</strong> Understanding the department's most frequent returning patients.</li>
+            <li><strong>MSR &mdash; My Shift Report.</strong> A web dashboard for recording key shift events in real time &mdash; the model that grew into <a href="/my-shift-report">its own platform</a>.</li>
           </ul>
+          <p>Around the models sits a workbook system &mdash; locked metric definitions, a leadership dashboard, and site-level report cards &mdash; so every number means the same thing to everyone, every month.</p>
+
+          <h2>Where it stands</h2>
+          <p>The models are in regular leadership use, and their locked definitions now form the data contract for the next generation of this work: an AI-enabled ED operations dashboard with conversational drill-down, currently in pilot.</p>
+          <p><a class="social" href="https://app.flow.gl/flow/kkurcc" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><path d="M15 3h6v6"/><path d="M10 14 21 3"/></svg>Explore an interactive model</a></p>
         </div>
         <dl class="v-facts">
           <div><dt>Role</dt><dd>Creator</dd></div>
           <div><dt>Founded</dt><dd>2021</dd></div>
           <div><dt>Focus</dt><dd>Operational analytics</dd></div>
           <div><dt>Status</dt><dd>Active</dd></div>
+          <div><dt>Example</dt><dd><a href="https://app.flow.gl/flow/kkurcc" target="_blank" rel="noopener">Interactive LBCC model</a></dd></div>
         </dl>
       </div>
     </div>
