@@ -19,7 +19,6 @@ operating contract for making changes.
 | `/epi-quotient` | `epi-quotient.html` | Unlisted |
 | `/missioncontrol` | `missioncontrol.html` | Unlisted |
 | `/progress` | `progress.html` | Unlisted, generated — see README |
-| `/landing` | `landing/index.html` | Unlisted — understanding.healthcare landing (not yet deployed) |
 
 **Unlisted means noindex, not private.** Unlisted pages carry
 `<meta name="robots" content="noindex">` (or `noindex, nofollow`), are excluded
@@ -126,6 +125,6 @@ in one plain-English line). Deployed and verified live.
 venture-page convention, missioncontrol sync rule, deploy procedure, DNS
 warning); README refreshed (missioncontrol row, obsolete ADD-DETAIL
 instructions replaced, DNS section corrected from HostGator to Vercel).
-`landing/` (understanding.healthcare landing page: forest background, ticker
-field, sign-in) moved in from the Mission Control folder — **untracked, not yet
-deployed**.
+The understanding.healthcare landing page was briefly deployed at `/landing`
+and reverted the same day — it belongs to the Mission Control project
+(`…/Mission Control/landing/`), not to this site. Don't re-add it here.

@@ -11,7 +11,6 @@ Personal site for Alfa O. Diallo, MD, MPH, FACEP. Static HTML, no build step, no
 | `my-shift-report.html` etc. | Venture pages. Unlisted (see below). |
 | `progress.html` | Weekly EM Informatics & Operations updates for directors. Unlisted. The entries between the `WEEKLY:START/END` markers are generated — edit the drafts in `~/Projects/_Operations/Portfolio Dashboard/weekly/` and run `node scripts/weekly.mjs --publish` there instead. |
 | `missioncontrol.html` | ED Mission Control mock. Unlisted. A copy — the source lives in the Mission Control project; see CLAUDE.md. |
-| `landing/` | understanding.healthcare landing page (index.html + background photo). Unlisted; not yet deployed. |
 | `full-site.html` | The complete multi-section site, kept for later. **Not deployed.** |
 | `hero-1800.jpg`, `hero-1100.jpg` | Responsive hero image |
 | `og-image.jpg` | 1200x630 social share card |
