@@ -1,0 +1,259 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>understanding.healthcare</title>
+<style>
+  :root {
+    --ink: #ececef;
+    --ink-soft: #b9b9c2;
+    --ink-muted: #8b8b95;
+    --mint: #74EAC0;
+    --glass-bg: rgb(14 14 18 / 0.55);
+    --glass-border: rgb(255 255 255 / 0.12);
+    --glass-edge: rgb(255 255 255 / 0.08);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    color: var(--ink);
+    background: #0e0e12;
+    overflow: hidden;
+  }
+  /* fixed forest field; everything scrolls/streams over it */
+  body::before {
+    content: ""; position: fixed; inset: 0; z-index: -1;
+    background:
+      linear-gradient(180deg, rgb(14 14 18 / 0.88), rgb(14 14 18 / 0.45) 30%, rgb(14 14 18 / 0.45) 70%, rgb(14 14 18 / 0.9)),
+      url("bg-forest.jpg") center / cover no-repeat,
+      #0e0e12;
+  }
+
+  .page { height: 100dvh; display: flex; flex-direction: column; }
+
+  /* ---------- masthead ---------- */
+  .mast {
+    display: flex; align-items: center; gap: 14px;
+    padding: 26px 34px 0;
+  }
+  .wordmark { font-size: 17px; font-weight: 550; letter-spacing: -0.01em; }
+  .wordmark .tld { color: var(--mint); }
+  .mast .tag { font-size: 12px; color: var(--ink-muted); margin-top: 2px; }
+  .signin {
+    margin-left: auto;
+    color: var(--ink); text-decoration: none; font-size: 13px; font-weight: 550;
+    border: 1px solid var(--glass-border); border-radius: 8px;
+    padding: 8px 18px;
+    background: var(--glass-bg);
+    -webkit-backdrop-filter: blur(14px) saturate(1.3);
+    backdrop-filter: blur(14px) saturate(1.3);
+    box-shadow: inset 0 1px 0 var(--glass-edge);
+    transition: border-color 140ms ease-out;
+  }
+  .signin:hover { border-color: var(--mint); }
+  .signin:focus-visible { outline: 1.5px solid var(--ink); outline-offset: 2px; }
+
+  .lede {
+    padding: 10px 34px 0; max-width: 60ch;
+    font-size: 13px; line-height: 1.55; color: var(--ink-soft);
+  }
+
+  /* ---------- ticker field ---------- */
+  .tickers {
+    flex: 1; min-height: 0;
+    display: flex; flex-direction: column; justify-content: space-evenly;
+    padding: 18px 0 8px;
+  }
+  .band { overflow: hidden; white-space: nowrap; }
+  .band .track {
+    display: inline-flex; align-items: baseline;
+    animation: stream var(--dur, 60s) linear infinite;
+    will-change: transform;
+  }
+  .band:hover .track, .band:focus-within .track { animation-play-state: paused; }
+  @keyframes stream {
+    from { transform: translateX(0); }
+    to   { transform: translateX(-50%); }
+  }
+  .cell { display: inline-flex; align-items: baseline; gap: 12px; padding-right: 90px; }
+  .chip {
+    font: inherit; color: var(--ink); background: none; border: none; cursor: pointer;
+    font-size: var(--fs, 20px); font-weight: 550; letter-spacing: -0.01em;
+    text-shadow: 0 1px 14px rgb(0 0 0 / 0.55);
+  }
+  .chip:hover, .chip:focus-visible { color: var(--mint); outline: none; }
+  .cell .gist { font-size: 12px; color: var(--ink-muted); text-shadow: 0 1px 10px rgb(0 0 0 / 0.6); }
+  .band.dim { opacity: 0.7; }
+  .band.dimmer { opacity: 0.45; }
+
+  /* ---------- detail sheet ---------- */
+  .sheet {
+    position: fixed; inset: auto 0 0 0; z-index: 20;
+    transform: translateY(110%);
+    transition: transform 230ms cubic-bezier(0.22, 1, 0.36, 1);
+    padding: 20px 34px 28px;
+    background: rgb(14 14 18 / 0.78);
+    -webkit-backdrop-filter: blur(20px) saturate(1.3);
+    backdrop-filter: blur(20px) saturate(1.3);
+    border-top: 1px solid var(--glass-border);
+    box-shadow: inset 0 1px 0 var(--glass-edge), 0 -14px 40px rgb(0 0 0 / 0.4);
+  }
+  .sheet.open { transform: translateY(0); }
+  .sheet h2 { font-size: 15px; font-weight: 600; margin-bottom: 4px; }
+  .sheet .grain { font-size: 11.5px; color: var(--mint); margin-bottom: 10px; }
+  .sheet ul { list-style: none; max-width: 78ch; }
+  .sheet li {
+    font-size: 12.5px; line-height: 1.55; color: var(--ink-soft);
+    padding-left: 14px; position: relative;
+  }
+  .sheet li::before { content: "·"; position: absolute; left: 2px; color: var(--ink-muted); }
+  .sheet .close {
+    position: absolute; top: 14px; right: 20px;
+    font: inherit; font-size: 12px; color: var(--ink-muted);
+    background: none; border: 1px solid var(--glass-border); border-radius: 6px;
+    padding: 3px 10px; cursor: pointer;
+  }
+  .sheet .close:hover { color: var(--ink); border-color: var(--ink-muted); }
+
+  footer {
+    padding: 0 34px 18px;
+    font-size: 11px; color: var(--ink-muted);
+    display: flex; gap: 16px; flex-wrap: wrap;
+  }
+
+  @media (max-width: 640px) {
+    .mast, .lede, footer { padding-left: 18px; padding-right: 18px; }
+    .sheet { padding: 18px 18px 24px; }
+    .cell { padding-right: 48px; }
+  }
+  /* motion off → tickers become a calm wrapped index */
+  @media (prefers-reduced-motion: reduce) {
+    .band { overflow: visible; white-space: normal; }
+    .band .track { animation: none; display: flex; flex-wrap: wrap; }
+    .band .track .copy2 { display: none; }
+    .sheet { transition: none; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+  <header class="mast">
+    <div>
+      <div class="wordmark">understanding<span class="tld">.healthcare</span></div>
+      <div class="tag">ED operations, read at a glance</div>
+    </div>
+    <a class="signin" href="https://www.understanding.healthcare/">Sign in</a>
+  </header>
+
+  <p class="lede">A quiet instrument panel for emergency department operations —
+  shift-level staffing, walkouts, length of stay, and the levers behind them.
+  Access is restricted; sign in with an authorized email.</p>
+
+  <div class="tickers" id="tickers" aria-label="Data families — select one for detail"></div>
+
+  <div class="sheet" id="sheet" role="dialog" aria-modal="false" aria-labelledby="sheetTitle">
+    <button class="close" id="sheetClose">Close</button>
+    <h2 id="sheetTitle"></h2>
+    <div class="grain" id="sheetGrain"></div>
+    <ul id="sheetList"></ul>
+  </div>
+
+  <footer>
+    <span>Restricted access · understanding.healthcare</span>
+    <span>Data stays local; this page describes structure, not patients.</span>
+  </footer>
+</div>
+
+<script>
+const FAMILIES = [
+  { t: "Shift-level operations", g: "one row per date × AM/PM shift",
+    gist: "census · seen · LWBS · staffing hours",
+    d: ["Staffing counts × hour credits — RN, Medic/PCA, and USC sub-shifts, plus custom off-grid shifts with an audit trail",
+        "Volume and outcome — start/end census, patients seen, LWBS/LBTC, AMA",
+        "Admits and transfers — ICU, IMCU, transfers in/out, Baker/Marchman Acts",
+        "Event markers — blue alerts, code hearts, stroke alerts, sepsis, falls/complaints, lines",
+        "Shift LOS in minutes, kept separate for day (7a–7p) and night (7p–7a)"] },
+  { t: "Derived shift metrics", g: "computed per shift",
+    gist: "pts per RN-hour · strain threshold 0.70",
+    d: ["Staff hours in window by group, including custom-shift terms",
+        "Patients per RN-hour — the strain metric, with the 0.70 walkout-cliff threshold",
+        "Patients per provider-hour where the schedule joins",
+        "LWBS rate per shift and pooled above/below threshold; census carryover between shifts"] },
+  { t: "Correlation & acuity analytics", g: "Pearson r across entered shifts",
+    gist: "ten metrics vs walkouts & LOS · twelve acuity markers",
+    d: ["Ten staffing and volume metrics correlated against LWBS rate, LWBS count, and LOS",
+        "Twelve critical-care and event markers, including the complex-patient-demand composite",
+        "Per-marker deltas — minutes of LOS per event and walkouts per event",
+        "Threshold scatters: the walkout cliff and the continuous LOS slope"] },
+  { t: "Staffing demand vs capacity", g: "per staff group per shift",
+    gist: "demand · capacity · utilization · load",
+    d: ["Seven staff groups from all-clinical down to USC",
+        "Demand as median patients per shift; capacity as hours × an adjustable patients-per-hour expectation",
+        "Utilization (median, and shifts over 100%) and load — patients per group-hour",
+        "Does capacity flex with demand — the within-period correlation answer"] },
+  { t: "Provider schedule", g: "six months of Shift Admin coverage",
+    gist: "per-shift physician & APC hours · roster",
+    d: ["Per-shift physician and APC hours with named coverage and the SSU doctor of record",
+        "Thirty-one clinician roster — hours, nights, weekends, holidays, PM share, stations",
+        "Tidy CSV outputs reconciled against the source PDF totals"] },
+  { t: "Imaging utilization", g: "department and provider, by year",
+    gist: "CT · MRI · US ordering rates, 2022→",
+    d: ["Department CT, MRI, ultrasound and any-imaging rates per year with a historical-average reference",
+        "Per-provider per-100 rates against the encounter-weighted department average",
+        "Case-mix caveat carried everywhere the numbers appear"] },
+  { t: "ECAS eCQM encounters", g: "501,325 encounters · 2016–2022",
+    gist: "wait · LWBS · boarding · prolonged LOS",
+    d: ["Patient-level trigger flags — wait, LWBS, boarding, prolonged LOS — rolled to annual and monthly rates",
+        "Yearly medians for wait, boarding, LOS, and door-to-doc",
+        "An integrity ledger: broken clocks and impossible orderings void a trigger, never pass it",
+        "Numerator anatomy — trigger combinations by disposition",
+        "De-identified at ingest; the store never leaves its machine"] },
+  { t: "Data disambiguation", g: "registry across sources",
+    gist: "sources · staff identity · shift maps",
+    d: ["Seven-source inventory with complete/partial/missing status",
+        "Cross-system staff identity registry spanning schedule, imaging, and workbook",
+        "Versioned shift maps and an hour-by-date coverage heatmap"] }
+];
+
+/* one band per family — different speeds, sizes, and opacities for depth */
+const host = document.getElementById("tickers");
+const SPEC = [
+  { fs: 24, dur: 58, cls: "" },
+  { fs: 17, dur: 74, cls: "dim" },
+  { fs: 21, dur: 49, cls: "" },
+  { fs: 15, dur: 88, cls: "dimmer" },
+  { fs: 23, dur: 64, cls: "dim" },
+  { fs: 16, dur: 42, cls: "" },
+  { fs: 20, dur: 79, cls: "dimmer" },
+  { fs: 18, dur: 54, cls: "dim" }
+];
+FAMILIES.forEach((f, i) => {
+  const s = SPEC[i % SPEC.length];
+  const band = document.createElement("div");
+  band.className = "band " + s.cls;
+  const cell = `<span class="cell"><button class="chip" data-i="${i}" style="--fs:${s.fs}px">${f.t}</button><span class="gist">${f.gist}</span></span>`;
+  const copy = cell.repeat(3);
+  band.innerHTML = `<div class="track" style="--dur:${s.dur}s"><span>${copy}</span><span class="copy2" aria-hidden="true">${copy}</span></div>`;
+  /* stagger starting positions so bands don't sync */
+  band.querySelector(".track").style.animationDelay = `-${(i * 7.3) % s.dur}s`;
+  host.appendChild(band);
+});
+
+const sheet = document.getElementById("sheet");
+host.addEventListener("click", e => {
+  const b = e.target.closest(".chip");
+  if (!b) return;
+  const f = FAMILIES[+b.dataset.i];
+  document.getElementById("sheetTitle").textContent = f.t;
+  document.getElementById("sheetGrain").textContent = f.g;
+  document.getElementById("sheetList").innerHTML = f.d.map(x => `<li>${x}</li>`).join("");
+  sheet.classList.add("open");
+});
+document.getElementById("sheetClose").addEventListener("click", () => sheet.classList.remove("open"));
+document.addEventListener("keydown", e => { if (e.key === "Escape") sheet.classList.remove("open"); });
+</script>
+</body>
+</html>

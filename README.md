@@ -9,6 +9,9 @@ Personal site for Alfa O. Diallo, MD, MPH, FACEP. Static HTML, no build step, no
 | `index.html` | Public landing page. Hero only: name, tagline, contact links. |
 | `styles.css` | Shared styles for every page. Change the accent color here once. |
 | `my-shift-report.html` etc. | Venture pages. Unlisted (see below). |
+| `progress.html` | Weekly EM Informatics & Operations updates for directors. Unlisted. The entries between the `WEEKLY:START/END` markers are generated — edit the drafts in `~/Projects/_Operations/Portfolio Dashboard/weekly/` and run `node scripts/weekly.mjs --publish` there instead. |
+| `missioncontrol.html` | ED Mission Control mock. Unlisted. A copy — the source lives in the Mission Control project; see CLAUDE.md. |
+| `landing/` | understanding.healthcare landing page (index.html + background photo). Unlisted; not yet deployed. |
 | `full-site.html` | The complete multi-section site, kept for later. **Not deployed.** |
 | `hero-1800.jpg`, `hero-1100.jpg` | Responsive hero image |
 | `og-image.jpg` | 1200x630 social share card |
@@ -31,13 +34,12 @@ Six pages, one per venture. With `cleanUrls` on, each is served without the `.ht
 
 **These are unlisted, not private.** Nothing on the landing page links to them and each carries `<meta name="robots" content="noindex, nofollow">`, so they stay out of search results. Anyone with the URL can still open one. Don't put anything confidential on them.
 
-## Adding detail to a venture page
+## Venture page content
 
-Each page ships with the name, role, dates, a one-line description, and a facts panel. To expand one:
-
-1. Open the file and find the `ADD DETAIL HERE` comment.
-2. Write prose in `<p>` tags, or use `<h2>` plus the `<ul><li>` pattern (see `ed-operations-data-models.html` for a working example).
-3. Change the wrapper class from `class="v-grid v-grid--solo"` to `class="v-grid"`. That moves the facts panel into a right-hand column beside your text.
+All six pages carry a full overview (July 2026): the problem, what it does in
+plain non-technical language, where it stands, and an access link to the live
+product. The structure, voice rules, and live-link table are documented in
+CLAUDE.md — follow them when adding a page or updating a status.
 
 ## Preview locally
 
@@ -65,14 +67,10 @@ Note it still has its CSS inline, so it does not depend on `styles.css`.
 
 ## Custom domain
 
-The domain currently points at HostGator. To move it to Vercel, change these records at your DNS host:
-
-| Record | Host | Value |
-|--------|------|-------|
-| CNAME | `www` | `cname.vercel-dns.com` |
-| A | `@` | `76.76.21.21` |
-
-Confirm the exact values in the Vercel dashboard, since they can change.
+DNS for alfadiallo.com is hosted on Vercel, and the zone also carries the Google
+Workspace mail records (MX, SPF, DKIM, DMARC). If DNS ever moves to another
+host, re-create those mail records there first or email breaks. Confirm current
+values in the Vercel dashboard.
 
 ## Re-optimizing the hero image (macOS)
 
