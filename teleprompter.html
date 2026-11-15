@@ -1,0 +1,988 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Teleprompter &middot; Alfa O. Diallo, MD</title>
+<meta name="description" content="A browser teleprompter that reads scripts from a Google Sheet.">
+
+<!-- Unlisted page: a personal tool, kept out of search results and the sitemap. -->
+<meta name="robots" content="noindex, nofollow">
+
+<!-- "Add to Home Screen" on iPad opens this full screen, without the Safari bars. -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Prompter">
+<meta name="theme-color" content="#000000">
+
+<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2032%2032'%3E%3Cpath%20d='M2%2020.4Q2%2013.6%206.6%207.8Q11.2%202.1%2016.8%202.1Q18.4%202.1%2019.5%202.6Q20.6%203.2%2021.1%204.3Q21.7%205.3%2021.9%206.1Q22.2%207%2022.3%208.2Q22.9%204.8%2023.6%203.5Q24.3%202.1%2025.8%202.1Q27.3%202.1%2027.3%203.6Q27.3%204.5%2026%208.6Q24.7%2012.8%2023.7%2015.3Q21.7%2019.6%2021.7%2022.4Q21.7%2024.2%2022.5%2025Q23.4%2025.7%2024.5%2025.7Q27.4%2025.7%2029.1%2021.5Q29.4%2020.9%2029.7%2021.1Q30%2021.4%2030%2021.9Q30%2023.7%2027.8%2026.8Q25.6%2029.9%2022.4%2029.9Q18.4%2029.9%2018.4%2024.8Q18.4%2024.7%2018.4%2024.5Q18.4%2024.3%2018.4%2024.3H18.4Q14.8%2029.9%209.9%2029.9Q6.3%2029.9%204.1%2027.3Q2%2024.7%202%2020.4ZM5.8%2022.1Q5.8%2028.3%2010.3%2028.3Q13%2028.3%2015.1%2026.2Q17.3%2024.1%2018.6%2021Q19.8%2017.9%2020.5%2014.8Q21.2%2011.8%2021.2%209.6Q21.2%203.3%2016.6%203.3Q14.1%203.3%2011.9%205.3Q9.8%207.3%208.5%2010.4Q7.2%2013.4%206.5%2016.5Q5.8%2019.6%205.8%2022.1Z'%20fill='%23000'/%3E%3C/svg%3E">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+
+<style>
+/* ==========================================================================
+   Teleprompter. Self-contained on purpose: it shares the site's mint accent
+   and typeface for the controls, but none of styles.css.
+
+   Two layers:
+     #stage  - the script, guide and timer. This is what the reader looks at,
+               so "Mirror" and "Flip" transform this layer and nothing else.
+     .chrome - the controls. Never mirrored: the operator touches the iPad
+               directly. Fades out while the script is rolling.
+   ========================================================================== */
+*, *::before, *::after { box-sizing: border-box; }
+[hidden] { display: none !important; }
+
+:root {
+  /* What the reader sees. Pure black/white: grey bleeds through prompter glass. */
+  --bg: #000;
+  --fg: #fff;
+  --cue: #74eac0;
+  --band: rgba(255,255,255,.08);
+
+  /* Controls: the site's dark palette. */
+  --ui: rgba(21,24,29,.94);
+  --ui-solid: #15181d;
+  --ui-2: #23272f;
+  --ui-ink: #ecebe6;
+  --ui-soft: #a3a5ac;
+  --ui-line: rgba(255,255,255,.14);
+  --accent: #74eac0;
+  --on-accent: #0b0d10;
+  --warn: #ffb4a2;
+
+  /* Set from JS (settings). */
+  --size: 64px;
+  --lh: 1.35;
+  --width: 86%;
+
+  --guide: 34dvh;              /* where the reading line sits, from the top */
+  --font-ui: "Space Grotesk", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-read: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+html.invert {
+  --bg: #fff;
+  --fg: #000;
+  --cue: #0b6e4f;
+  --band: rgba(0,0,0,.07);
+}
+
+html, body { height: 100%; }
+body {
+  margin: 0;
+  position: fixed; inset: 0;
+  overflow: hidden;
+  overscroll-behavior: none;
+  background: var(--bg);
+  color: var(--ui-ink);
+  font-family: var(--font-ui);
+  -webkit-font-smoothing: antialiased;
+  -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+}
+button, input, select, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+
+/* ---------- Stage ------------------------------------------------------- */
+#stage {
+  position: fixed; inset: 0;
+  overflow: hidden;
+  background: var(--bg);
+  touch-action: none;           /* we handle drag ourselves; no rubber-banding */
+  user-select: none; -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  cursor: pointer;
+}
+html.mirror #stage { transform: scaleX(-1); }
+html.flip #stage { transform: scaleY(-1); }
+html.mirror.flip #stage { transform: scale(-1, -1); }
+
+/* Soft fade at the top and bottom edges so lines don't pop in and out. */
+#stage::before, #stage::after {
+  content: ""; position: absolute; left: 0; right: 0; height: 12dvh; z-index: 2; pointer-events: none;
+}
+#stage::before { top: 0; background: linear-gradient(var(--bg), transparent); }
+#stage::after { bottom: 0; background: linear-gradient(transparent, var(--bg)); }
+
+#track { will-change: transform; }
+#script {
+  width: min(var(--width), calc(100% - 76px));
+  margin: 0 auto;
+  padding-top: var(--guide);
+  font-family: var(--font-read);
+  font-size: var(--size);
+  line-height: var(--lh);
+  font-weight: 600;
+  letter-spacing: -.005em;
+  color: var(--fg);
+}
+#text p { margin: 0 0 .85em; white-space: pre-wrap; overflow-wrap: break-word; }
+#text p:last-child { margin-bottom: 0; }
+.cue { color: var(--cue); font-size: .68em; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+#end { margin: 1.4em 0 0; color: var(--cue); font-size: .5em; font-weight: 700; letter-spacing: .2em; text-transform: uppercase; opacity: .8; }
+
+/* Reading line: a faint band one line tall with a marker at the edge. */
+#guide {
+  position: absolute; left: 0; right: 0; top: var(--guide);
+  height: calc(var(--size) * var(--lh));
+  background: var(--band);
+  pointer-events: none;
+}
+#guide::before {
+  content: ""; position: absolute; left: 10px; top: 50%;
+  border: solid transparent; border-width: 11px 0 11px 16px; border-left-color: var(--cue);
+  transform: translateY(-50%);
+}
+html.no-guide #guide { display: none; }
+
+/* Timer. Lives in the stage so it mirrors along with the script. */
+#hud {
+  position: absolute; z-index: 3; left: 50%; top: calc(env(safe-area-inset-top) + 16px);
+  transform: translateX(-50%);
+  display: flex; align-items: baseline; gap: 10px;
+  padding: 7px 14px; border-radius: 999px;
+  background: color-mix(in srgb, var(--bg) 72%, transparent);
+  color: var(--fg);
+  font-family: var(--font-ui); font-variant-numeric: tabular-nums;
+  white-space: nowrap; pointer-events: none;
+}
+#hud b { font-size: 22px; font-weight: 700; }
+#hud span { font-size: 14px; font-weight: 500; opacity: .62; }
+html.no-timer #hud { display: none; }
+
+#countdown {
+  position: absolute; inset: 0; z-index: 4;
+  display: grid; place-items: center;
+  background: color-mix(in srgb, var(--bg) 78%, transparent);
+  color: var(--cue);
+  font-family: var(--font-ui); font-weight: 700; font-size: min(42vw, 42dvh); line-height: 1;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+
+#progress {
+  position: fixed; z-index: 5; left: 0; right: 0; bottom: 0; height: 3px;
+  background: var(--accent); transform-origin: left center; transform: scaleX(0);
+  pointer-events: none; opacity: .85;
+}
+
+/* ---------- Controls (chrome) ------------------------------------------ */
+.chrome {
+  position: fixed; z-index: 10;
+  background: var(--ui);
+  border: 1px solid var(--ui-line);
+  border-radius: 18px;
+  -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
+  transition: opacity .25s ease, transform .25s ease;
+}
+body.playing.idle .chrome { opacity: 0; pointer-events: none; }
+body.playing.idle .top { transform: translateY(-8px); }
+body.playing.idle #bar { transform: translate(-50%, 8px); }
+
+.top { top: calc(env(safe-area-inset-top) + 12px); display: flex; align-items: center; gap: 2px; padding: 4px; }
+.top.left { left: calc(env(safe-area-inset-left) + 12px); }
+.top.right { right: calc(env(safe-area-inset-right) + 12px); }
+
+.icon {
+  width: 44px; height: 44px; flex: none;
+  display: grid; place-items: center;
+  border: 0; border-radius: 14px; background: transparent; color: var(--ui-ink);
+  touch-action: manipulation;
+}
+.icon svg { width: 22px; height: 22px; }
+.icon:hover { background: var(--ui-2); }
+.icon:active { background: var(--ui-2); transform: scale(.96); }
+.icon:focus-visible, .btn:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-visible {
+  outline: 2px solid var(--accent); outline-offset: 2px;
+}
+.icon.spin svg { animation: spin .8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+#pick {
+  height: 44px; max-width: min(46vw, 340px);
+  padding: 0 34px 0 14px;
+  border: 0; border-radius: 14px;
+  background: transparent url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23a3a5ac' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") no-repeat right 10px center / 16px;
+  color: var(--ui-ink); font-size: 16px; font-weight: 500;
+  appearance: none; -webkit-appearance: none;
+  text-overflow: ellipsis; white-space: nowrap; overflow: hidden;
+  cursor: pointer;
+}
+#pick option { color: #111; background: #fff; }
+
+#bar {
+  left: 50%; bottom: calc(env(safe-area-inset-bottom) + 16px);
+  transform: translateX(-50%);
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: center;
+  gap: 6px 18px; padding: 8px 14px;
+  width: max-content; max-width: calc(100vw - 24px);
+}
+.grp { display: flex; align-items: center; gap: 2px; }
+#play {
+  width: 60px; height: 52px; margin: 0 6px;
+  background: var(--accent); color: var(--on-accent); border-radius: 16px;
+}
+#play:hover, #play:active { background: var(--accent); filter: brightness(1.08); }
+#play svg { width: 26px; height: 26px; }
+#play .i-pause, body.playing #play .i-play { display: none; }
+body.playing #play .i-pause { display: block; }
+
+.stepper .lbl { font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--ui-soft); font-weight: 500; margin-right: 6px; }
+.stepper output { min-width: 64px; text-align: center; font-size: 17px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.stepper output small { display: block; margin-top: -3px; font-size: 11px; font-weight: 500; letter-spacing: .08em; text-transform: uppercase; color: var(--ui-soft); }
+
+/* ---------- Settings panel --------------------------------------------- */
+#scrim {
+  position: fixed; inset: 0; z-index: 20; background: rgba(0,0,0,.55);
+  opacity: 0; visibility: hidden; transition: opacity .25s ease, visibility 0s linear .25s;
+}
+#panel {
+  position: fixed; z-index: 21; top: 0; right: 0; bottom: 0;
+  width: min(430px, 100vw);
+  padding: calc(env(safe-area-inset-top) + 8px) calc(env(safe-area-inset-right) + 22px) calc(env(safe-area-inset-bottom) + 28px) 22px;
+  overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain;
+  background: var(--ui-solid); border-left: 1px solid var(--ui-line);
+  transform: translateX(100%); visibility: hidden;
+  transition: transform .28s cubic-bezier(.2,.8,.2,1), visibility 0s linear .28s;
+}
+body.panel-open #scrim { opacity: 1; visibility: visible; transition-delay: 0s; }
+body.panel-open #panel { transform: none; visibility: visible; transition-delay: 0s; }
+
+#panel header {
+  position: sticky; top: 0; z-index: 1; margin: 0 -22px; padding: 6px 12px 6px 22px;
+  display: flex; align-items: center; justify-content: space-between;
+  background: var(--ui-solid);
+}
+#panel h2 { margin: 0; font-size: 20px; letter-spacing: -.01em; }
+#panel section { padding: 18px 0 20px; border-top: 1px solid var(--ui-line); }
+#panel section:first-of-type { border-top: 0; padding-top: 8px; }
+#panel h3 { margin: 0 0 12px; font-size: 12px; letter-spacing: .16em; text-transform: uppercase; color: var(--ui-soft); font-weight: 500; }
+#panel p { margin: 10px 0 0; font-size: 14.5px; line-height: 1.5; color: var(--ui-soft); }
+
+.field { display: block; margin-top: 14px; }
+.field:first-of-type { margin-top: 0; }
+.field > span { display: block; margin-bottom: 6px; font-size: 14.5px; font-weight: 500; }
+.field input, .field textarea {
+  width: 100%; padding: 11px 12px;
+  border: 1px solid var(--ui-line); border-radius: 12px; background: #0e1014;
+  font-size: 16px;                 /* 16px+ stops iOS zooming into the field */
+}
+.field textarea { min-height: 96px; resize: vertical; line-height: 1.4; }
+.field input::placeholder, .field textarea::placeholder { color: #6d7078; }
+
+.actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.btn {
+  min-height: 44px; padding: 0 16px;
+  border: 1px solid transparent; border-radius: 12px;
+  background: var(--accent); color: var(--on-accent); font-weight: 700; font-size: 15px;
+  touch-action: manipulation;
+}
+.btn.ghost { background: transparent; border-color: var(--ui-line); color: var(--ui-ink); font-weight: 500; }
+.btn:active { transform: scale(.98); }
+.btn[disabled] { opacity: .55; cursor: default; }
+
+#sheetStatus { min-height: 1.5em; }
+#sheetStatus.ok { color: var(--accent); }
+#sheetStatus.err { color: var(--warn); }
+
+details { margin-top: 12px; font-size: 14.5px; color: var(--ui-soft); }
+details summary { cursor: pointer; color: var(--ui-ink); font-weight: 500; padding: 6px 0; }
+details ol { margin: 6px 0 0; padding-left: 20px; line-height: 1.5; }
+details li { margin-bottom: 6px; }
+details b, #panel p b { color: var(--ui-ink); font-weight: 500; }
+
+.row { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 48px; padding: 4px 0; }
+.row > span { font-size: 16px; }
+.row small { display: block; font-size: 13px; color: var(--ui-soft); line-height: 1.35; }
+.sw {
+  appearance: none; -webkit-appearance: none; flex: none;
+  width: 52px; height: 32px; margin: 0; border-radius: 999px;
+  background: #3a3f48; position: relative; cursor: pointer; transition: background .2s;
+}
+.sw::after {
+  content: ""; position: absolute; top: 3px; left: 3px; width: 26px; height: 26px; border-radius: 50%;
+  background: #fff; transition: transform .2s;
+}
+.sw:checked { background: var(--accent); }
+.sw:checked::after { transform: translateX(20px); }
+.row select {
+  height: 40px; padding: 0 12px; border: 1px solid var(--ui-line); border-radius: 10px;
+  background: #0e1014; font-size: 16px;
+}
+.row input[type="range"] { flex: 1; max-width: 190px; accent-color: var(--accent); }
+
+.keys { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 8px 14px; font-size: 14.5px; color: var(--ui-soft); }
+.keys dt { color: var(--ui-ink); font-weight: 500; white-space: nowrap; }
+.keys dd { margin: 0; }
+
+/* Phones: the timer drops below the top controls instead of between them. */
+@media (max-width: 620px) {
+  #hud { top: calc(env(safe-area-inset-top) + 76px); }
+  #bar { gap: 4px 10px; padding: 8px 10px; border-radius: 20px; }
+  .stepper output { min-width: 54px; }
+  .stepper .lbl { display: none; }   /* the wpm / px units under the numbers say enough */
+}
+@media (prefers-reduced-motion: reduce) {
+  .chrome, #panel, #scrim { transition: none; }
+}
+</style>
+</head>
+<body>
+
+<!-- What the reader sees. Tap to start/pause, drag to move. -->
+<main id="stage" aria-label="Script. Tap to start or pause, drag to move.">
+  <div id="track">
+    <div id="script">
+      <div id="text"></div>
+      <p id="end">End</p>
+    </div>
+  </div>
+  <div id="guide"></div>
+  <div id="hud" aria-live="off"><b id="elapsed">0:00</b><span id="remaining"></span></div>
+  <div id="countdown" hidden></div>
+</main>
+<div id="progress"></div>
+
+<!-- Top left: which script -->
+<div class="chrome top left">
+  <select id="pick" aria-label="Choose a script"></select>
+  <button class="icon" id="refresh" type="button" aria-label="Reload scripts from the Google Sheet" hidden>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 6.3M20 4v7h-7"/></svg>
+  </button>
+</div>
+
+<!-- Top right: full screen + settings -->
+<div class="chrome top right">
+  <button class="icon" id="fs" type="button" aria-label="Full screen" hidden>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>
+  </button>
+  <button class="icon" id="gear" type="button" aria-label="Settings">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h10M18 6h2M4 12h2M10 12h10M4 18h10M18 18h2"/><circle cx="16" cy="6" r="2"/><circle cx="8" cy="12" r="2"/><circle cx="16" cy="18" r="2"/></svg>
+  </button>
+</div>
+
+<!-- Bottom: transport, speed, text size -->
+<div class="chrome" id="bar">
+  <div class="grp">
+    <button class="icon" id="restart" type="button" aria-label="Back to the start">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 5v14M19 5.5v13L9 12z"/></svg>
+    </button>
+    <button class="icon" id="back" type="button" aria-label="Back a few lines">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 15 6-6 6 6"/></svg>
+    </button>
+    <button class="icon" id="play" type="button" aria-label="Start">
+      <svg class="i-play" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5.2v13.6a1 1 0 0 0 1.5.9l11-6.8a1 1 0 0 0 0-1.8l-11-6.8A1 1 0 0 0 8 5.2z"/></svg>
+      <svg class="i-pause" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="5" width="4.5" height="14" rx="1.2"/><rect x="13.5" y="5" width="4.5" height="14" rx="1.2"/></svg>
+    </button>
+    <button class="icon" id="fwd" type="button" aria-label="Forward a few lines">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+    </button>
+  </div>
+  <div class="grp stepper">
+    <span class="lbl">Speed</span>
+    <button class="icon" id="slower" type="button" aria-label="Slower"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 12h12"/></svg></button>
+    <output id="wpm" aria-live="polite"></output>
+    <button class="icon" id="faster" type="button" aria-label="Faster"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 12h12M12 6v12"/></svg></button>
+  </div>
+  <div class="grp stepper">
+    <span class="lbl">Text</span>
+    <button class="icon" id="smaller" type="button" aria-label="Smaller text"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 12h12"/></svg></button>
+    <output id="sz" aria-live="polite"></output>
+    <button class="icon" id="bigger" type="button" aria-label="Larger text"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 12h12M12 6v12"/></svg></button>
+  </div>
+</div>
+
+<div id="scrim"></div>
+<aside id="panel" aria-label="Settings">
+  <header>
+    <h2>Settings</h2>
+    <button class="icon" id="closePanel" type="button" aria-label="Close settings">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+    </button>
+  </header>
+
+  <section>
+    <h3>Scripts</h3>
+    <label class="field">
+      <span>Google Sheet link</span>
+      <input id="sheetUrl" type="url" inputmode="url" placeholder="https://docs.google.com/spreadsheets/d/…" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false">
+    </label>
+    <div class="actions">
+      <button class="btn" id="loadSheet" type="button">Load scripts</button>
+      <button class="btn ghost" id="forget" type="button" hidden>Disconnect</button>
+    </div>
+    <p id="sheetStatus" role="status"></p>
+    <details>
+      <summary>How to set up the sheet</summary>
+      <ol>
+        <li>In row 1, type <b>Title</b> in A1 and <b>Script</b> in B1.</li>
+        <li>Add one script per row: its name in column A, the full text in column B. Line breaks inside the cell are kept.</li>
+        <li>Tap Share, then set General access to <b>Anyone with the link</b>, Viewer.</li>
+        <li>Copy the link and paste it above. To use a particular tab, copy the link while that tab is open.</li>
+      </ol>
+      <p>Anyone who has the link can read the sheet, so keep confidential material out of it. The link is saved on this device only. Words in [square brackets] show as cues to read silently.</p>
+    </details>
+    <label class="field">
+      <span>Or paste a script</span>
+      <textarea id="paste" placeholder="Paste text here to use it without a sheet." spellcheck="false"></textarea>
+    </label>
+    <div class="actions">
+      <button class="btn ghost" id="usePaste" type="button">Use pasted text</button>
+    </div>
+  </section>
+
+  <section>
+    <h3>Display</h3>
+    <label class="row"><span>Mirror text<small>Reversed left to right, for teleprompter glass.</small></span><input class="sw" type="checkbox" id="oMirror"></label>
+    <label class="row"><span>Flip upside down<small>For rigs that mount the screen inverted.</small></span><input class="sw" type="checkbox" id="oFlip"></label>
+    <label class="row"><span>Invert colors<small>Black text on a white screen.</small></span><input class="sw" type="checkbox" id="oInvert"></label>
+    <label class="row"><span>Text width</span><input type="range" id="oWidth" min="50" max="100" step="2"></label>
+    <label class="row"><span>Line spacing</span><input type="range" id="oLh" min="1.1" max="1.9" step="0.05"></label>
+  </section>
+
+  <section>
+    <h3>Reading aids</h3>
+    <label class="row"><span>Timer<small>Time elapsed and time left at this speed.</small></span><input class="sw" type="checkbox" id="oTimer"></label>
+    <label class="row"><span>Reading line<small>Marks the line to read from.</small></span><input class="sw" type="checkbox" id="oGuide"></label>
+    <label class="row"><span>Countdown before start</span>
+      <select id="oCountdown">
+        <option value="0">Off</option>
+        <option value="3">3 seconds</option>
+        <option value="5">5 seconds</option>
+        <option value="10">10 seconds</option>
+      </select>
+    </label>
+    <p id="wakeNote" hidden>This browser can't keep the screen awake on its own. If the iPad dims mid-read, set Settings &rsaquo; Display &amp; Brightness &rsaquo; Auto-Lock to Never.</p>
+  </section>
+
+  <section>
+    <h3>Keyboard or remote</h3>
+    <dl class="keys">
+      <dt>Space</dt><dd>Start or pause</dd>
+      <dt>&uarr; &darr;</dt><dd>Faster or slower</dd>
+      <dt>&larr; &rarr;</dt><dd>Back or forward a few lines</dd>
+      <dt>Page Up / Down</dt><dd>Back or forward most of a screen</dd>
+      <dt>Home</dt><dd>Back to the start</dd>
+      <dt>M</dt><dd>Mirror on or off</dd>
+    </dl>
+    <p>Tip: in Safari, Share &rsaquo; Add to Home Screen opens the teleprompter full screen.</p>
+  </section>
+</aside>
+
+<script>
+(function () {
+  'use strict';
+
+  var $ = function (id) { return document.getElementById(id); };
+  var root = document.documentElement, body = document.body;
+  var stage = $('stage'), track = $('track'), textEl = $('text');
+  function clamp(v, lo, hi) { return Math.min(hi, Math.max(lo, v)); }
+
+  /* ---------- Saved state (this device only) ---------------------------- */
+  var store = {
+    get: function (k, d) { try { var v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
+    set: function (k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} },
+    del: function (k) { try { localStorage.removeItem(k); } catch (e) {} }
+  };
+
+  var S = Object.assign({
+    wpm: 140, size: 0, lh: 1.35, width: 86,
+    mirror: false, flip: false, invert: false,
+    timer: true, guide: true, countdown: 3
+  }, store.get('tp.settings', {}));
+  function saveSettings() { store.set('tp.settings', S); }
+  // Text size: whatever was chosen, otherwise a size that suits this screen.
+  function size() {
+    return S.size || clamp(Math.round(Math.min(innerWidth || screen.width, innerHeight || screen.height) / 12), 30, 80);
+  }
+
+  var SAMPLE = {
+    title: 'Sample script',
+    text: 'Welcome to your teleprompter.\n\n' +
+      'Tap anywhere on the text to start, and tap again to pause. Drag the text up or down to move through the script.\n\n' +
+      '[Pause]\n\n' +
+      'The speed control at the bottom is in words per minute. Most people read aloud comfortably somewhere between 130 and 160. Start there, then nudge it until the words arrive just as you need them.\n\n' +
+      'Words in square brackets, like the pause above, appear as cues. Read them silently.\n\n' +
+      'To bring in your own scripts, open Settings in the top right corner and paste the link to a Google Sheet. Put each script on its own row, with a title in column A and the text in column B.\n\n' +
+      'Then choose a script from the menu in the top left corner, and press play.'
+  };
+
+  /* ---------- Google Sheets --------------------------------------------- */
+  // Accepts a normal share link, a "Publish to web" link, or a bare sheet ID.
+  function parseSheetUrl(u) {
+    u = (u || '').trim();
+    var gid = (u.match(/[?&#]gid=(\d+)/) || [])[1];
+    var m = u.match(/\/spreadsheets\/d\/e\/([\w-]+)/);
+    if (m) return { kind: 'pub', id: m[1], gid: gid };
+    m = u.match(/\/spreadsheets\/d\/([\w-]+)/);
+    if (m) return { kind: 'doc', id: m[1], gid: gid };
+    if (/^[\w-]{30,}$/.test(u)) return { kind: 'doc', id: u, gid: null };
+    return null;
+  }
+  // Addresses to try, in order. The plain CSV export is the most faithful copy
+  // of the cells; the second one is a fallback in case Google refuses the first.
+  function sheetEndpoints(info) {
+    var base = 'https://docs.google.com/spreadsheets/d/';
+    var gid = info.gid ? '&gid=' + info.gid : '';
+    if (info.kind === 'pub') return [base + 'e/' + info.id + '/pub?output=csv' + (gid ? '&single=true' + gid : '')];
+    return [
+      base + info.id + '/export?format=csv' + gid,
+      base + info.id + '/gviz/tq?tqx=out:csv&headers=1' + gid   // headers=1: don't guess how many heading rows
+    ];
+  }
+
+  function parseCSV(s) {
+    var rows = [], row = [], cell = '', q = false, c;
+    if (s.charCodeAt(0) === 0xFEFF) s = s.slice(1);
+    for (var i = 0; i < s.length; i++) {
+      c = s[i];
+      if (q) {
+        if (c === '"') { if (s[i + 1] === '"') { cell += '"'; i++; } else q = false; }
+        else cell += c;
+      }
+      else if (c === '"') q = true;
+      else if (c === ',') { row.push(cell); cell = ''; }
+      else if (c === '\n' || c === '\r') {
+        if (c === '\r' && s[i + 1] === '\n') i++;
+        row.push(cell); cell = ''; rows.push(row); row = [];
+      }
+      else cell += c;
+    }
+    if (cell !== '' || row.length) { row.push(cell); rows.push(row); }
+    return rows;
+  }
+
+  // Rows -> [{title, text}]. Expected layout is Title | Script with a heading
+  // row, but it copes with no headings, extra columns, or a single column
+  // (which is read as one script, one paragraph per row).
+  var TITLE_RE = /^(title|name|script (name|title)|topic|video|episode)$/i;
+  var BODY_RE = /^(script|text|body|content|copy|words)$/i;
+  function rowsToScripts(rows) {
+    rows = rows.map(function (r) { return r.map(function (c) { return (c || '').replace(/\r\n?/g, '\n').trim(); }); })
+               .filter(function (r) { return r.some(Boolean); });
+    if (!rows.length) return [];
+    var head = rows[0];
+    var ti = head.findIndex(function (c) { return TITLE_RE.test(c); });
+    var bi = head.findIndex(function (c) { return BODY_RE.test(c); });
+    var data = (ti > -1 || bi > -1) ? rows.slice(1) : rows;
+
+    var used = {};
+    data.forEach(function (r) { r.forEach(function (c, i) { if (c) used[i] = 1; }); });
+    var cols = Object.keys(used).map(Number).sort(function (a, b) { return a - b; });
+    if (!cols.length) return [];
+
+    if (cols.length === 1) {
+      return [{ title: 'Script', text: data.map(function (r) { return r[cols[0]] || ''; }).filter(Boolean).join('\n\n') }];
+    }
+    if (ti < 0 && bi < 0) { ti = cols[0]; bi = cols[1]; }
+    else if (bi < 0) bi = cols.filter(function (i) { return i !== ti; })[0];
+    else if (ti < 0) ti = cols.filter(function (i) { return i !== bi; })[0];
+
+    var out = [];
+    data.forEach(function (r) {
+      var text = r[bi] || '';
+      if (text) out.push({ title: r[ti] || 'Script ' + (out.length + 1), text: text });
+    });
+    return out;
+  }
+
+  function fetchSheet(url) {
+    var info = parseSheetUrl(url);
+    if (!info) return Promise.reject(new Error("That doesn't look like a Google Sheets link."));
+    function get(u) {
+      return fetch(u, { cache: 'no-store' }).then(function (res) {
+        if (!res.ok) throw new Error('http ' + res.status);
+        return res.text();
+      }).then(function (txt) {
+        if (/^\s*</.test(txt)) throw new Error('sign-in page');   // a web page, not the sheet
+        return txt;
+      });
+    }
+    var attempt = sheetEndpoints(info).reduce(function (p, u) {
+      return p.catch(function () { return get(u); });
+    }, Promise.reject());
+    return attempt.catch(function () {
+      // A sheet that isn't shared sends the browser to a sign-in page, which
+      // looks the same from here as a wrong link.
+      throw new Error(navigator.onLine === false
+        ? "You're offline."
+        : "Couldn't read the sheet. Check the link, and that Share is set to “Anyone with the link” (Viewer).");
+    }).then(function (txt) {
+      var list = rowsToScripts(parseCSV(txt));
+      if (!list.length) throw new Error('The sheet loaded, but no scripts were found. Put titles in column A and scripts in column B.');
+      return list;
+    });
+  }
+
+  /* ---------- Script list ------------------------------------------------ */
+  var sheetUrl = store.get('tp.sheetUrl', '');
+  var sheetScripts = store.get('tp.scripts', null);     // last good copy, so it still works offline
+  var pasted = store.get('tp.pasted', null);
+  var scripts = [], cur = null;
+
+  var pick = $('pick');
+  function buildList(preferTitle) {
+    scripts = (sheetUrl && sheetScripts ? sheetScripts.list : []).concat(pasted ? [pasted] : []);
+    if (!scripts.length) scripts = [SAMPLE];
+    pick.textContent = '';
+    scripts.forEach(function (s, i) {
+      var o = document.createElement('option');
+      o.value = i; o.textContent = s.title;
+      pick.appendChild(o);
+    });
+    var want = preferTitle || store.get('tp.last', '');
+    var i = scripts.findIndex(function (s) { return s.title === want; });
+    selectScript(i < 0 ? 0 : i);
+    $('refresh').hidden = !sheetUrl;
+    $('forget').hidden = !sheetUrl;
+  }
+  function selectScript(i) {
+    var next = scripts[i];
+    var same = cur && cur.title === next.title && cur.text === next.text;
+    cur = next; pick.value = i;
+    store.set('tp.last', cur.title);
+    if (same) return;                      // a refresh that changed nothing keeps your place
+    pause();
+    renderScript();
+    pos = 0; elapsed = 0;
+    layout();
+  }
+  pick.addEventListener('change', function () { selectScript(+pick.value); pick.blur(); });
+
+  var CUE_RE = /(\[[^\]\n]{1,80}\])/;
+  var words = 0;
+  function renderScript() {
+    textEl.textContent = '';
+    var text = cur.text.replace(/\r\n?/g, '\n');
+    text.split(/\n\s*\n/).forEach(function (para) {
+      para = para.trim();
+      if (!para) return;
+      var p = document.createElement('p');
+      para.split(CUE_RE).forEach(function (part, i) {
+        if (!part) return;
+        if (i % 2) {
+          var cue = document.createElement('span');
+          cue.className = 'cue'; cue.textContent = part.slice(1, -1);
+          p.appendChild(cue);
+        } else p.appendChild(document.createTextNode(part));
+      });
+      textEl.appendChild(p);
+    });
+    words = (text.replace(new RegExp(CUE_RE.source, 'g'), ' ').match(/\S+/g) || []).length;
+  }
+
+  function setStatus(msg, cls) { var el = $('sheetStatus'); el.textContent = msg || ''; el.className = cls || ''; }
+  function describeSheet() {
+    if (!sheetUrl || !sheetScripts) return setStatus('');
+    var n = sheetScripts.list.length, when = new Date(sheetScripts.at);
+    setStatus(n + (n === 1 ? ' script' : ' scripts') + ' loaded, updated ' +
+      when.toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) + '.', 'ok');
+  }
+
+  var loading = false;
+  function loadSheet(url, quiet) {
+    if (loading) return;
+    loading = true;
+    $('refresh').classList.add('spin'); $('loadSheet').disabled = true;
+    if (!quiet) setStatus('Loading…');
+    return fetchSheet(url).then(function (list) {
+      sheetUrl = url; sheetScripts = { list: list, at: Date.now() };
+      store.set('tp.sheetUrl', sheetUrl); store.set('tp.scripts', sheetScripts);
+      // Never swap the text out from under someone mid-read.
+      if (!playing) buildList(quiet && cur ? cur.title : (cur && cur !== SAMPLE ? cur.title : list[0].title));
+      describeSheet();
+    }).catch(function (err) {
+      if (quiet && sheetScripts) setStatus(err.message + ' Showing the copy saved on this device.', 'err');
+      else setStatus(err.message, 'err');
+    }).then(function () {
+      loading = false;
+      $('refresh').classList.remove('spin'); $('loadSheet').disabled = false;
+    });
+  }
+
+  $('loadSheet').addEventListener('click', function () {
+    var url = $('sheetUrl').value.trim();
+    if (!url) return setStatus('Paste a Google Sheets link first.', 'err');
+    loadSheet(url, false);
+  });
+  $('sheetUrl').addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); $('loadSheet').click(); } });
+  $('refresh').addEventListener('click', function () { if (sheetUrl) loadSheet(sheetUrl, true); });
+  $('forget').addEventListener('click', function () {
+    sheetUrl = ''; sheetScripts = null;
+    store.del('tp.sheetUrl'); store.del('tp.scripts');
+    $('sheetUrl').value = ''; setStatus('Sheet disconnected.');
+    buildList();
+  });
+  $('usePaste').addEventListener('click', function () {
+    var t = $('paste').value.trim();
+    pasted = t ? { title: 'Pasted script', text: t } : null;
+    if (pasted) store.set('tp.pasted', pasted); else store.del('tp.pasted');
+    buildList(pasted ? pasted.title : null);
+    if (pasted) closePanel();
+  });
+
+  /* ---------- Scrolling engine ------------------------------------------ */
+  // pos is how far the script has travelled past the reading line, in px.
+  // Speed is words per minute, converted through this script's own
+  // pixels-per-word, so changing the text size doesn't change the pace.
+  var pos = 0, max = 0, pxPerSec = 0;
+  var playing = false, elapsed = 0, last = 0, raf = 0;
+  var dragging = false;
+
+  function fmt(sec) {
+    sec = Math.max(0, Math.round(sec));
+    var h = Math.floor(sec / 3600), m = Math.floor(sec % 3600 / 60), s = sec % 60;
+    return (h ? h + ':' + (m < 10 ? '0' : '') : '') + m + ':' + (s < 10 ? '0' : '') + s;
+  }
+
+  function applyLook() {
+    root.style.setProperty('--size', size() + 'px');
+    root.style.setProperty('--lh', S.lh);
+    root.style.setProperty('--width', S.width + '%');
+    root.classList.toggle('mirror', S.mirror);
+    root.classList.toggle('flip', S.flip);
+    root.classList.toggle('invert', S.invert);
+    root.classList.toggle('no-timer', !S.timer);
+    root.classList.toggle('no-guide', !S.guide);
+    var meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.setAttribute('content', S.invert ? '#ffffff' : '#000000');
+    $('wpm').innerHTML = S.wpm + '<small>wpm</small>';
+    $('sz').innerHTML = size() + '<small>px</small>';
+  }
+
+  // Re-measure after anything that reflows the text, keeping the same place.
+  function layout() {
+    var frac = max > 0 ? pos / max : 0;
+    max = textEl.offsetHeight;
+    pos = clamp(frac * max, 0, max);
+    pxPerSec = words && max ? (S.wpm / 60) * (max / words) : 0;
+    render();
+  }
+
+  var shown = { e: '', r: '' };
+  function render() {
+    track.style.transform = 'translate3d(0,' + (-pos).toFixed(2) + 'px,0)';
+    $('progress').style.transform = 'scaleX(' + (max ? pos / max : 0).toFixed(4) + ')';
+    var e = fmt(elapsed), r = pxPerSec ? fmt((max - pos) / pxPerSec) + ' left' : '';
+    if (e !== shown.e) $('elapsed').textContent = shown.e = e;
+    if (r !== shown.r) $('remaining').textContent = shown.r = r;
+  }
+
+  function frame(t) {
+    if (!playing) return;
+    if (last) {
+      var dt = (t - last) / 1000;
+      elapsed += Math.min(dt, 1);                       // the clock keeps true time
+      if (!dragging) pos += pxPerSec * Math.min(dt, 0.1); // the text never lurches after a hiccup
+      if (pos >= max) { pos = max; render(); pause(); return; }
+      render();
+    }
+    last = t;
+    raf = requestAnimationFrame(frame);
+  }
+
+  function start() {
+    playing = true; last = 0;
+    body.classList.add('playing');
+    $('play').setAttribute('aria-label', 'Pause');
+    keepAwake(true);
+    wake();
+    raf = requestAnimationFrame(frame);
+  }
+  function pause() {
+    cancelCountdown();
+    if (!playing) return;
+    playing = false;
+    cancelAnimationFrame(raf);
+    body.classList.remove('playing');
+    $('play').setAttribute('aria-label', 'Start');
+    keepAwake(false);
+    wake();
+  }
+  function play() {
+    if (playing || counting) return;
+    if (!max) return;
+    if (pos >= max) { pos = 0; elapsed = 0; render(); }
+    if (pos === 0 && S.countdown > 0) runCountdown(S.countdown);
+    else start();
+  }
+  function toggle() { if (playing || counting) pause(); else play(); }
+
+  function restart() { pause(); pos = 0; elapsed = 0; render(); }
+  function nudge(px) { pos = clamp(pos + px, 0, max); render(); wake(); }
+  function lines(n) { return n * size() * S.lh; }
+
+  /* Countdown, drawn inside the stage so it mirrors too. */
+  var counting = 0, cdEl = $('countdown');
+  function runCountdown(n) {
+    cdEl.hidden = false; cdEl.textContent = n;
+    body.classList.add('playing'); wake();
+    counting = setInterval(function () {
+      n--;
+      if (n <= 0) { cancelCountdown(true); start(); }
+      else cdEl.textContent = n;
+    }, 1000);
+  }
+  function cancelCountdown(starting) {
+    if (!counting) return;
+    clearInterval(counting); counting = 0; cdEl.hidden = true;
+    if (!starting) body.classList.remove('playing');
+  }
+
+  /* Keep the screen on while rolling. */
+  var wakeLock = null;
+  function keepAwake(on) {
+    if (!('wakeLock' in navigator)) return;
+    if (on) navigator.wakeLock.request('screen').then(function (l) { wakeLock = l; }, function () {});
+    else if (wakeLock) { wakeLock.release().catch(function () {}); wakeLock = null; }
+  }
+  document.addEventListener('visibilitychange', function () { if (document.hidden) pause(); });
+  $('wakeNote').hidden = 'wakeLock' in navigator;
+
+  /* Controls fade out a moment after the script starts rolling. */
+  var idleTimer = 0;
+  function wake() {
+    body.classList.remove('idle');
+    clearTimeout(idleTimer);
+    if (playing || counting) idleTimer = setTimeout(function () { body.classList.add('idle'); }, 2600);
+  }
+  document.querySelectorAll('.chrome').forEach(function (el) {
+    el.addEventListener('pointerdown', wake);
+    el.addEventListener('pointermove', wake);
+  });
+
+  /* ---------- Touch, mouse, wheel --------------------------------------- */
+  var drag = null;
+  stage.addEventListener('pointerdown', function (e) {
+    if (e.button) return;
+    drag = { id: e.pointerId, y: e.clientY, moved: false };
+    try { stage.setPointerCapture(e.pointerId); } catch (err) {}
+  });
+  stage.addEventListener('pointermove', function (e) {
+    if (!drag || e.pointerId !== drag.id) return;
+    var dy = e.clientY - drag.y;
+    if (!drag.moved) {
+      if (Math.abs(dy) < 8) return;
+      drag.moved = dragging = true; dy = 0;
+    }
+    drag.y = e.clientY;
+    pos = clamp(pos - dy * (S.flip ? -1 : 1), 0, max);
+    render();
+  });
+  function endDrag(e) {
+    if (!drag || e.pointerId !== drag.id) return;
+    var tapped = !drag.moved && e.type === 'pointerup';
+    drag = null; dragging = false;
+    if (tapped) toggle();
+  }
+  stage.addEventListener('pointerup', endDrag);
+  stage.addEventListener('pointercancel', endDrag);
+  stage.addEventListener('wheel', function (e) {
+    e.preventDefault();
+    pos = clamp(pos + e.deltaY * (S.flip ? -1 : 1), 0, max); render();
+  }, { passive: false });
+
+  /* ---------- Buttons ---------------------------------------------------- */
+  // Fires once on press, then repeats while held. Keyboard activation still works.
+  function hold(id, fn) {
+    var btn = $(id), t = 0, i = 0, byPointer = false;
+    function stop() { clearTimeout(t); clearInterval(i); }
+    btn.addEventListener('pointerdown', function (e) {
+      if (e.button) return;
+      byPointer = true; fn();
+      stop(); t = setTimeout(function () { i = setInterval(fn, 80); }, 420);
+    });
+    ['pointerup', 'pointerleave', 'pointercancel'].forEach(function (n) { btn.addEventListener(n, stop); });
+    btn.addEventListener('click', function () { if (byPointer) { byPointer = false; btn.blur(); return; } fn(); });
+    btn.addEventListener('contextmenu', function (e) { e.preventDefault(); });
+  }
+  function setSpeed(v) { S.wpm = clamp(Math.round(v / 5) * 5, 40, 400); saveSettings(); applyLook(); layout(); wake(); }
+  function setSize(v) { S.size = clamp(Math.round(v), 20, 200); saveSettings(); applyLook(); layout(); wake(); }
+
+  hold('slower', function () { setSpeed(S.wpm - 5); });
+  hold('faster', function () { setSpeed(S.wpm + 5); });
+  hold('smaller', function () { setSize(size() - 2); });
+  hold('bigger', function () { setSize(size() + 2); });
+  hold('back', function () { nudge(-lines(2)); });
+  hold('fwd', function () { nudge(lines(2)); });
+  $('play').addEventListener('click', function () { toggle(); this.blur(); });
+  $('restart').addEventListener('click', function () { restart(); this.blur(); });
+
+  /* Full screen (iPad Safari and desktop; hidden where it isn't available). */
+  var fsReq = root.requestFullscreen || root.webkitRequestFullscreen;
+  var standalone = navigator.standalone || matchMedia('(display-mode: standalone)').matches;
+  if (fsReq && !standalone) {
+    $('fs').hidden = false;
+    $('fs').addEventListener('click', function () {
+      var el = document.fullscreenElement || document.webkitFullscreenElement;
+      var p = el ? (document.exitFullscreen || document.webkitExitFullscreen).call(document) : fsReq.call(root);
+      if (p && p.catch) p.catch(function () {});
+      this.blur();
+    });
+  }
+
+  /* ---------- Settings panel -------------------------------------------- */
+  function openPanel() { pause(); body.classList.add('panel-open'); }
+  function closePanel() { body.classList.remove('panel-open'); if (document.activeElement) document.activeElement.blur(); }
+  $('gear').addEventListener('click', openPanel);
+  $('closePanel').addEventListener('click', closePanel);
+  $('scrim').addEventListener('click', closePanel);
+
+  function bindToggle(id, key) {
+    var el = $(id); el.checked = !!S[key];
+    el.addEventListener('change', function () { S[key] = el.checked; saveSettings(); applyLook(); layout(); });
+  }
+  function bindValue(id, key) {
+    var el = $(id); el.value = S[key];
+    el.addEventListener('input', function () { S[key] = +el.value; saveSettings(); applyLook(); layout(); });
+  }
+  bindToggle('oMirror', 'mirror'); bindToggle('oFlip', 'flip'); bindToggle('oInvert', 'invert');
+  bindToggle('oTimer', 'timer'); bindToggle('oGuide', 'guide');
+  bindValue('oWidth', 'width'); bindValue('oLh', 'lh'); bindValue('oCountdown', 'countdown');
+
+  /* ---------- Keyboard / Bluetooth remote -------------------------------- */
+  function typing(e) { return /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName) && e.target.type !== 'checkbox'; }
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') { if (body.classList.contains('panel-open')) closePanel(); return; }
+    if (typing(e) || e.metaKey || e.ctrlKey || e.altKey) return;
+    if (body.classList.contains('panel-open')) return;
+    var h = stage.clientHeight, handled = true;
+    switch (e.key) {
+      case ' ': case 'Enter': case 'k': if (!e.repeat) toggle(); break;
+      case 'ArrowUp': setSpeed(S.wpm + 5); break;
+      case 'ArrowDown': setSpeed(S.wpm - 5); break;
+      case 'ArrowLeft': nudge(-lines(2)); break;
+      case 'ArrowRight': nudge(lines(2)); break;
+      case 'PageUp': nudge(-h * 0.6); break;
+      case 'PageDown': nudge(h * 0.6); break;
+      case 'Home': restart(); break;
+      case 'm': case 'M':
+        S.mirror = !S.mirror; $('oMirror').checked = S.mirror; saveSettings(); applyLook(); break;
+      default: handled = false;
+    }
+    if (handled) { e.preventDefault(); if (document.activeElement && document.activeElement !== body) document.activeElement.blur(); }
+  });
+  // Stop Space "clicking" whichever button was touched last.
+  document.addEventListener('keyup', function (e) {
+    if (e.key === ' ' && !typing(e) && !body.classList.contains('panel-open')) e.preventDefault();
+  });
+
+  /* ---------- Go --------------------------------------------------------- */
+  applyLook();
+  $('sheetUrl').value = sheetUrl;
+  if (pasted) $('paste').value = pasted.text;
+  buildList();
+  describeSheet();
+
+  // Rotation, text size, width, web-font swap: anything that reflows the script.
+  if (window.ResizeObserver) new ResizeObserver(layout).observe(textEl);
+  window.addEventListener('resize', function () { applyLook(); layout(); });
+
+  if (sheetUrl) loadSheet(sheetUrl, true);   // refresh quietly; the saved copy is already on screen
+})();
+</script>
+</body>
+</html>
