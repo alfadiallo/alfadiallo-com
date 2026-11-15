@@ -109,7 +109,8 @@ html.mirror.flip #stage { transform: scale(-1, -1); }
 
 #track { will-change: transform; }
 #script {
-  width: min(var(--width), calc(100% - 76px));
+  /* Never under the reading-line marker, or under a phone's notch when sideways. */
+  width: min(var(--width), calc(100% - 76px - env(safe-area-inset-left) - env(safe-area-inset-right)));
   margin: 0 auto;
   padding-top: var(--guide);
   font-family: var(--font-read);
@@ -178,9 +179,10 @@ html.no-timer #hud { display: none; }
   -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
   transition: opacity .25s ease, transform .25s ease;
 }
-body.playing.idle .chrome { opacity: 0; pointer-events: none; }
-body.playing.idle .top { transform: translateY(-8px); }
-body.playing.idle #bar { transform: translate(-50%, 8px); }
+/* body.remote = this device is driving another one, so its controls stay put. */
+body.playing.idle:not(.remote) .chrome { opacity: 0; pointer-events: none; }
+body.playing.idle:not(.remote) .top { transform: translateY(-8px); }
+body.playing.idle:not(.remote) #bar { transform: translate(-50%, 8px); }
 
 .top { top: calc(env(safe-area-inset-top) + 12px); display: flex; align-items: center; gap: 2px; padding: 4px; }
 .top.left { left: calc(env(safe-area-inset-left) + 12px); }
@@ -199,6 +201,10 @@ body.playing.idle #bar { transform: translate(-50%, 8px); }
   outline: 2px solid var(--accent); outline-offset: 2px;
 }
 .icon.spin svg { animation: spin .8s linear infinite; }
+#linkBtn { color: var(--ui-soft); }
+#linkBtn.on { color: var(--accent); }
+#linkBtn.wait svg { animation: pulse 1.4s ease-in-out infinite; }
+@keyframes pulse { 50% { opacity: .35; } }
 @keyframes spin { to { transform: rotate(360deg); } }
 
 #pick {
@@ -285,8 +291,15 @@ body.panel-open #panel { transform: none; visibility: visible; transition-delay:
 .btn[disabled] { opacity: .55; cursor: default; }
 
 #sheetStatus { min-height: 1.5em; }
-#sheetStatus.ok { color: var(--accent); }
-#sheetStatus.err { color: var(--warn); }
+#sheetStatus.ok, #linkStatus.ok { color: var(--accent); }
+#sheetStatus.err, #linkStatus.err { color: var(--warn); }
+#hostCode {
+  margin: 6px 0 0; font-size: 40px; font-weight: 700; letter-spacing: .1em; line-height: 1.2;
+  font-variant-numeric: tabular-nums; color: var(--accent);
+  user-select: all; -webkit-user-select: all;
+}
+#joinCode { font-size: 22px; font-weight: 700; letter-spacing: .1em; font-variant-numeric: tabular-nums; }
+#joinCode::placeholder { font-size: 16px; font-weight: 400; letter-spacing: 0; }
 
 details { margin-top: 12px; font-size: 14.5px; color: var(--ui-soft); }
 details summary { cursor: pointer; color: var(--ui-ink); font-weight: 500; padding: 6px 0; }
@@ -325,6 +338,13 @@ details b, #panel p b { color: var(--ui-ink); font-weight: 500; }
   .stepper output { min-width: 54px; }
   .stepper .lbl { display: none; }   /* the wpm / px units under the numbers say enough */
 }
+/* A phone held sideways: very little height, so the controls tuck in tighter. */
+@media (max-height: 480px) {
+  .top { top: calc(env(safe-area-inset-top) + 6px); }
+  #hud { top: calc(env(safe-area-inset-top) + 10px); }
+  #bar { bottom: calc(env(safe-area-inset-bottom) + 6px); padding: 3px 10px; }
+  #play { height: 44px; }
+}
 @media (prefers-reduced-motion: reduce) {
   .chrome, #panel, #scrim { transition: none; }
 }
@@ -356,6 +376,9 @@ details b, #panel p b { color: var(--ui-ink); font-weight: 500; }
 
 <!-- Top right: full screen + settings -->
 <div class="chrome top right">
+  <button class="icon" id="linkBtn" type="button" aria-label="Linked devices" hidden>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="11" height="14" rx="2"/><rect x="15" y="9" width="6" height="11" rx="1.5"/><path d="M7 21h4"/></svg>
+  </button>
   <button class="icon" id="fs" type="button" aria-label="Full screen" hidden>
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>
   </button>
@@ -432,6 +455,31 @@ details b, #panel p b { color: var(--ui-ink); font-weight: 500; }
     <div class="actions">
       <button class="btn ghost" id="usePaste" type="button">Use pasted text</button>
     </div>
+  </section>
+
+  <section id="linkSec">
+    <h3>Two devices</h3>
+    <p style="margin-top:0">Link a phone and an iPad so both show the same script at the same place, and either one can start, pause and change speed.</p>
+    <div id="hostRow">
+      <label class="row"><span>Share this screen<small>Turn on here, on the device you read from.</small></span><input class="sw" type="checkbox" id="oHost"></label>
+      <div id="hostBox" hidden>
+        <div id="hostCode" aria-label="Link code"></div>
+        <p>On the other device, open this page, go to Settings, and type this code under "Join with a code".</p>
+      </div>
+    </div>
+    <div id="joinRow">
+      <label class="field">
+        <span>Join with a code</span>
+        <input id="joinCode" type="text" inputmode="numeric" maxlength="7" placeholder="Code from the other device" autocomplete="off">
+      </label>
+      <div class="actions"><button class="btn" id="joinBtn" type="button">Connect</button></div>
+    </div>
+    <div class="actions"><button class="btn ghost" id="leaveBtn" type="button" hidden>Disconnect</button></div>
+    <p id="linkStatus" role="status"></p>
+    <details>
+      <summary>How linking works</summary>
+      <p>Both devices need to be online. They find each other through a free pairing service, then talk to each other directly. Each device keeps its own text size, mirror and color settings; the script, position, speed and timer are shared. The code stays the same until you turn sharing off.</p>
+    </details>
   </section>
 
   <section>
@@ -621,12 +669,14 @@ details b, #panel p b { color: var(--ui-ink); font-weight: 500; }
   var sheetUrl = store.get('tp.sheetUrl', '');
   var sheetScripts = store.get('tp.scripts', null);     // last good copy, so it still works offline
   var pasted = store.get('tp.pasted', null);
-  var scripts = [], cur = null;
+  var scripts = [], cur = null, curIndex = 0;
 
   var pick = $('pick');
   function buildList(preferTitle) {
-    scripts = (sheetUrl && sheetScripts ? sheetScripts.list : []).concat(pasted ? [pasted] : []);
+    // When this device has joined another one, it shows that device's scripts.
+    scripts = link.list || (sheetUrl && sheetScripts ? sheetScripts.list : []).concat(pasted ? [pasted] : []);
     if (!scripts.length) scripts = [SAMPLE];
+    listVer++;
     pick.textContent = '';
     scripts.forEach(function (s, i) {
       var o = document.createElement('option');
@@ -635,22 +685,30 @@ details b, #panel p b { color: var(--ui-ink); font-weight: 500; }
     });
     var want = preferTitle || store.get('tp.last', '');
     var i = scripts.findIndex(function (s) { return s.title === want; });
-    selectScript(i < 0 ? 0 : i);
-    $('refresh').hidden = !sheetUrl;
+    showScript(i < 0 ? 0 : i);
+    $('refresh').hidden = link.list ? !link.hostHasSheet : !sheetUrl;
     $('forget').hidden = !sheetUrl;
+    sendList();
   }
-  function selectScript(i) {
+  function showScript(i) {
     var next = scripts[i];
+    if (!next) return;
     var same = cur && cur.title === next.title && cur.text === next.text;
-    cur = next; pick.value = i;
-    store.set('tp.last', cur.title);
-    if (same) return;                      // a refresh that changed nothing keeps your place
+    cur = next; curIndex = i; pick.value = i;
+    if (!link.list) store.set('tp.last', cur.title);
+    if (same) return sync();               // a refresh that changed nothing keeps your place
     pause();
     renderScript();
     pos = 0; elapsed = 0;
     layout();
+    sync();
   }
-  pick.addEventListener('change', function () { selectScript(+pick.value); pick.blur(); });
+  // What the menu does: on a joined device it asks the other device to switch.
+  function chooseScript(i) {
+    if (cmd('script', i)) pick.value = curIndex;
+    else showScript(i);
+  }
+  pick.addEventListener('change', function () { chooseScript(+pick.value); pick.blur(); });
 
   var CUE_RE = /(\[[^\]\n]{1,80}\])/;
   var words = 0;
@@ -709,7 +767,10 @@ details b, #panel p b { color: var(--ui-ink); font-weight: 500; }
     loadSheet(url, false);
   });
   $('sheetUrl').addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); $('loadSheet').click(); } });
-  $('refresh').addEventListener('click', function () { if (sheetUrl) loadSheet(sheetUrl, true); });
+  $('refresh').addEventListener('click', function () {
+    if (cmd('refresh')) return;
+    if (sheetUrl) loadSheet(sheetUrl, true);
+  });
   $('forget').addEventListener('click', function () {
     sheetUrl = ''; sheetScripts = null;
     store.del('tp.sheetUrl'); store.del('tp.scripts');
@@ -788,19 +849,22 @@ details b, #panel p b { color: var(--ui-ink); font-weight: 500; }
     playing = true; last = 0;
     body.classList.add('playing');
     $('play').setAttribute('aria-label', 'Pause');
-    keepAwake(true);
+    refreshAwake();
     wake();
     raf = requestAnimationFrame(frame);
+    sync();
   }
   function pause() {
     cancelCountdown();
-    if (!playing) return;
-    playing = false;
-    cancelAnimationFrame(raf);
-    body.classList.remove('playing');
-    $('play').setAttribute('aria-label', 'Start');
-    keepAwake(false);
-    wake();
+    if (playing) {
+      playing = false;
+      cancelAnimationFrame(raf);
+      body.classList.remove('playing');
+      $('play').setAttribute('aria-label', 'Start');
+      refreshAwake();
+      wake();
+    }
+    sync();
   }
   function play() {
     if (playing || counting) return;
@@ -809,37 +873,54 @@ details b, #panel p b { color: var(--ui-ink); font-weight: 500; }
     if (pos === 0 && S.countdown > 0) runCountdown(S.countdown);
     else start();
   }
-  function toggle() { if (playing || counting) pause(); else play(); }
-
-  function restart() { pause(); pos = 0; elapsed = 0; render(); }
-  function nudge(px) { pos = clamp(pos + px, 0, max); render(); wake(); }
+  // start / pause / play above act on this device only. The functions below are
+  // what buttons, taps and keys call: on a joined device they are sent to the
+  // device that is sharing, which then tells everyone the new state.
+  function toggle() { if (cmd('toggle')) return; if (playing || counting) pause(); else play(); }
+  function restart() { if (cmd('restart')) return; pause(); pos = 0; elapsed = 0; render(); sync(); }
+  function seekTo(px) {
+    pos = clamp(px, 0, max); render();
+    if (remote()) sendSeek(); else syncSoon();
+  }
+  function nudge(px) { wake(); seekTo(pos + px); }
   function lines(n) { return n * size() * S.lh; }
 
   /* Countdown, drawn inside the stage so it mirrors too. */
-  var counting = 0, cdEl = $('countdown');
+  var counting = 0, cdN = 0, cdEl = $('countdown');
   function runCountdown(n) {
-    cdEl.hidden = false; cdEl.textContent = n;
-    body.classList.add('playing'); wake();
+    cdN = n; cdEl.hidden = false; cdEl.textContent = n;
+    body.classList.add('playing'); wake(); sync();
     counting = setInterval(function () {
-      n--;
+      cdN = --n;
       if (n <= 0) { cancelCountdown(true); start(); }
-      else cdEl.textContent = n;
+      else { cdEl.textContent = n; sync(); }
     }, 1000);
   }
   function cancelCountdown(starting) {
     if (!counting) return;
-    clearInterval(counting); counting = 0; cdEl.hidden = true;
+    clearInterval(counting); counting = 0; cdN = 0; cdEl.hidden = true;
     if (!starting) body.classList.remove('playing');
   }
 
-  /* Keep the screen on while rolling. */
-  var wakeLock = null;
-  function keepAwake(on) {
+  /* Keep the screen on while rolling, and for as long as two devices are
+     linked: a sleeping iPad can't hear the phone tell it to start. */
+  var wakeLock = null, wakePending = false;
+  function refreshAwake() {
     if (!('wakeLock' in navigator)) return;
-    if (on) navigator.wakeLock.request('screen').then(function (l) { wakeLock = l; }, function () {});
-    else if (wakeLock) { wakeLock.release().catch(function () {}); wakeLock = null; }
+    var want = playing || !!counting || remote() || (link.role === 'host' && link.conns.length > 0);
+    if (want && !wakeLock && !wakePending && !document.hidden) {
+      wakePending = true;
+      navigator.wakeLock.request('screen').then(function (l) {
+        wakePending = false; wakeLock = l;
+        l.addEventListener('release', function () { if (wakeLock === l) wakeLock = null; });
+        refreshAwake();                    // in case it stopped being wanted meanwhile
+      }, function () { wakePending = false; });
+    } else if (!want && wakeLock) { wakeLock.release().catch(function () {}); wakeLock = null; }
   }
-  document.addEventListener('visibilitychange', function () { if (document.hidden) pause(); });
+  document.addEventListener('visibilitychange', function () {
+    if (document.hidden) pause();
+    else { linkWake(); refreshAwake(); }   // the browser drops the screen lock whenever the page is hidden
+  });
   $('wakeNote').hidden = 'wakeLock' in navigator;
 
   /* Controls fade out a moment after the script starts rolling. */
@@ -869,8 +950,7 @@ details b, #panel p b { color: var(--ui-ink); font-weight: 500; }
       drag.moved = dragging = true; dy = 0;
     }
     drag.y = e.clientY;
-    pos = clamp(pos - dy * (S.flip ? -1 : 1), 0, max);
-    render();
+    seekTo(pos - dy * (S.flip ? -1 : 1));
   });
   function endDrag(e) {
     if (!drag || e.pointerId !== drag.id) return;
@@ -882,7 +962,7 @@ details b, #panel p b { color: var(--ui-ink); font-weight: 500; }
   stage.addEventListener('pointercancel', endDrag);
   stage.addEventListener('wheel', function (e) {
     e.preventDefault();
-    pos = clamp(pos + e.deltaY * (S.flip ? -1 : 1), 0, max); render();
+    seekTo(pos + e.deltaY * (S.flip ? -1 : 1));
   }, { passive: false });
 
   /* ---------- Buttons ---------------------------------------------------- */
@@ -899,7 +979,12 @@ details b, #panel p b { color: var(--ui-ink); font-weight: 500; }
     btn.addEventListener('click', function () { if (byPointer) { byPointer = false; btn.blur(); return; } fn(); });
     btn.addEventListener('contextmenu', function (e) { e.preventDefault(); });
   }
-  function setSpeed(v) { S.wpm = clamp(Math.round(v / 5) * 5, 40, 400); saveSettings(); applyLook(); layout(); wake(); }
+  function applySpeed(v) { S.wpm = clamp(Math.round(v / 5) * 5, 40, 400); applyLook(); layout(); }
+  function setSpeed(v) {
+    applySpeed(v); wake();
+    if (remote()) { holdSpeed = performance.now() + 500; cmd('speed', S.wpm); }
+    else { saveSettings(); sync(); }
+  }
   function setSize(v) { S.size = clamp(Math.round(v), 20, 200); saveSettings(); applyLook(); layout(); wake(); }
 
   hold('slower', function () { setSpeed(S.wpm - 5); });
@@ -925,7 +1010,7 @@ details b, #panel p b { color: var(--ui-ink); font-weight: 500; }
   }
 
   /* ---------- Settings panel -------------------------------------------- */
-  function openPanel() { pause(); body.classList.add('panel-open'); }
+  function openPanel() { if (!remote()) pause(); body.classList.add('panel-open'); }
   function closePanel() { body.classList.remove('panel-open'); if (document.activeElement) document.activeElement.blur(); }
   $('gear').addEventListener('click', openPanel);
   $('closePanel').addEventListener('click', closePanel);
@@ -970,12 +1055,280 @@ details b, #panel p b { color: var(--ui-ink); font-weight: 500; }
     if (e.key === ' ' && !typing(e) && !body.classList.contains('panel-open')) e.preventDefault();
   });
 
+  /* ---------- Two devices ------------------------------------------------ */
+  // One device shares ("host"), the other joins with its 6-digit code ("guest").
+  // The host is the single source of truth: it owns the scripts, the position
+  // and the clock, and tells guests about every change plus twice a second.
+  // A guest shows the same thing and sends its button presses back as commands.
+  // Position travels as a fraction of the script, because each screen wraps the
+  // text differently; speed is words per minute, so both scroll at the same rate.
+  //
+  // The devices talk directly (WebRTC). PeerJS's free public service is only
+  // used to introduce them. The library is fetched the first time linking is
+  // used, so the teleprompter itself has no outside dependencies.
+  var PEER_LIB = 'https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js';
+  var PEER_SRI = 'sha384-nlUQ8ZqCbvStErob+biJNzSgltf6urV3VGqhfIfzhmg9RXmpeRm76ELw0pYnKlTR';
+  var PEER_PREFIX = 'adtp1-';
+
+  var link = { role: null, code: '', peer: null, conns: [], conn: null, list: null, v: -1, hostHasSheet: false, retry: 0, tries: 0, note: '' };
+  var L = store.get('tp.link', {});          // { host: bool, hostCode, join }
+  var listVer = 0, holdPos = 0, holdSpeed = 0;
+
+  function remote() { return link.role === 'guest' && !!link.conn && link.conn.open; }
+  function send(conn, m) { try { if (conn.open) conn.send(m); } catch (e) {} }
+  function cmd(c, a) { if (!remote()) return false; send(link.conn, { t: 'c', c: c, a: a }); return true; }
+
+  /* Host -> guests */
+  function stateMsg() { return { t: 's', v: listVer, n: curIndex, f: max ? pos / max : 0, p: playing, w: S.wpm, e: elapsed, cd: cdN }; }
+  function sync() { if (link.role === 'host') { var m = stateMsg(); link.conns.forEach(function (c) { send(c, m); }); } }
+  var syncTimer = 0;
+  function syncSoon() { if (!syncTimer) syncTimer = setTimeout(function () { syncTimer = 0; sync(); }, 60); }
+  function sendList(conn) {
+    if (link.role !== 'host') return;
+    var m = { t: 'l', v: listVer, list: scripts, n: curIndex, r: !!sheetUrl };
+    if (conn) send(conn, m); else link.conns.forEach(function (c) { send(c, m); });
+  }
+  setInterval(sync, 500);
+
+  function onCommand(m) {
+    if (!m || m.t !== 'c') return;
+    var a = m.a;
+    switch (m.c) {
+      case 'toggle': toggle(); break;
+      case 'restart': restart(); break;
+      case 'seek': if (typeof a === 'number' && isFinite(a)) { pos = clamp(a, 0, 1) * max; render(); sync(); } break;
+      case 'speed': if (typeof a === 'number' && isFinite(a)) { applySpeed(a); saveSettings(); sync(); } break;
+      case 'script': if (scripts[a]) showScript(a); break;
+      case 'refresh': if (sheetUrl) loadSheet(sheetUrl, true); break;
+    }
+  }
+
+  /* Guest <- host */
+  var seekTimer = 0;
+  function sendSeek() {
+    holdPos = performance.now() + 500;      // don't let an older echo yank the text back
+    if (!seekTimer) seekTimer = setTimeout(function () {
+      seekTimer = 0; holdPos = performance.now() + 500;
+      cmd('seek', max ? pos / max : 0);
+    }, 50);
+  }
+  function onHostMsg(m) {
+    if (!m) return;
+    if (m.t === 'l' && Array.isArray(m.list)) {
+      var list = m.list.filter(function (s) { return s && typeof s.text === 'string'; })
+                       .map(function (s) { return { title: String(s.title || 'Script'), text: s.text }; });
+      if (!list.length) return;
+      link.list = list; link.hostHasSheet = !!m.r;
+      buildList(list[m.n] ? list[m.n].title : null);
+      link.v = m.v;
+    } else if (m.t === 's' && m.v === link.v) applyState(m);
+  }
+  function applyState(m) {
+    var now = performance.now();
+    if (m.n !== curIndex && scripts[m.n]) showScript(m.n);
+    if (now > holdSpeed && m.w !== S.wpm) applySpeed(m.w);
+    elapsed = +m.e || 0;
+    if (!dragging && now > holdPos) {
+      var target = clamp(+m.f || 0, 0, 1) * max, d = target - pos;
+      // Small drift is eased out; anything bigger (a jump, a pause) snaps.
+      pos = (!m.p || Math.abs(d) > lines(0.5)) ? target : pos + d * 0.35;
+    }
+    if (m.cd) { cdEl.hidden = false; cdEl.textContent = m.cd; }
+    else if (!counting) cdEl.hidden = true;
+    if (m.p && !playing) start();
+    else if (!m.p && playing) pause();
+    render();
+  }
+
+  /* Connecting */
+  var peerLib = null;
+  function loadPeerLib() {
+    if (window.Peer) return Promise.resolve();
+    if (!peerLib) peerLib = new Promise(function (ok, fail) {
+      var s = document.createElement('script');
+      s.src = PEER_LIB; s.integrity = PEER_SRI; s.crossOrigin = 'anonymous';
+      s.onload = ok;
+      s.onerror = function () { peerLib = null; s.remove(); fail(); };
+      document.head.appendChild(s);
+    });
+    return peerLib;
+  }
+  function newCode() {
+    var n = new Uint32Array(1); crypto.getRandomValues(n);
+    return String(100000 + n[0] % 900000);
+  }
+  function showCode(c) { return c.slice(0, 3) + ' ' + c.slice(3); }
+
+  function openPeer() {
+    var role = link.role;
+    loadPeerLib().then(function () {
+      if (link.role !== role || link.peer) return;
+      var peer = link.peer = role === 'host' ? new Peer(PEER_PREFIX + link.code) : new Peer();
+      peer.on('open', function () {
+        link.tries = 0; link.note = '';
+        if (link.role === 'guest') connectToHost();
+        updateLinkUI();
+      });
+      peer.on('connection', function (conn) {
+        if (link.role !== 'host') return conn.close();
+        conn.on('open', function () {
+          link.conns.push(conn);
+          sendList(conn); send(conn, stateMsg());
+          updateLinkUI();
+        });
+        conn.on('data', onCommand);
+        var gone = function () { link.conns = link.conns.filter(function (c) { return c !== conn; }); updateLinkUI(); };
+        conn.on('close', gone); conn.on('error', gone);
+      });
+      // Lost the pairing service (not the other device): quietly sign back in.
+      peer.on('disconnected', function () {
+        setTimeout(function () { if (link.peer === peer && !peer.destroyed) peer.reconnect(); }, 1500);
+      });
+      peer.on('error', function (err) { onPeerError(peer, err); });
+    }, function () {
+      if (link.role !== role) return;
+      link.note = "Couldn't reach the pairing service. Check the internet connection.";
+      updateLinkUI();
+      retryLater(5000);
+    });
+  }
+  function onPeerError(peer, err) {
+    if (link.peer !== peer) return;
+    var type = err && err.type;
+    if (type === 'peer-unavailable') {                 // guest: nobody is sharing with that code (yet)
+      link.note = 'No device is sharing with code ' + showCode(link.code) + ' yet. Still looking…';
+      link.conn = null;
+      updateLinkUI();
+      return retryLater(3000);
+    }
+    if (type === 'unavailable-id') {                   // host: code still held, usually by this page before a reload
+      link.peer = null;
+      if (++link.tries > 4) { link.tries = 0; link.code = L.hostCode = newCode(); store.set('tp.link', L); }
+      updateLinkUI();
+      return retryLater(2500);
+    }
+    if (type === 'browser-incompatible') { link.note = "This browser can't link devices."; return linkStop(true); }
+    link.note = 'Connection trouble. Trying again…';
+    if (peer.destroyed) link.peer = null;
+    updateLinkUI();
+    retryLater(3000);
+  }
+  function retryLater(ms) {
+    clearTimeout(link.retry);
+    link.retry = setTimeout(linkWake, ms);
+  }
+  // Bring the link back to life: called on a timer after trouble, and whenever
+  // the page comes back to the front (phones drop connections when they lock).
+  function linkWake() {
+    if (!link.role) return;
+    var peer = link.peer;
+    if (!peer || peer.destroyed) { link.peer = null; return openPeer(); }
+    if (peer.disconnected) return peer.reconnect();
+    if (link.role === 'guest' && !remote()) connectToHost();
+  }
+  function connectToHost() {
+    var peer = link.peer;
+    if (link.role !== 'guest' || !peer || peer.destroyed || peer.disconnected || !peer.open) return;
+    if (link.conn && !link.conn.open) { try { link.conn.close(); } catch (e) {} }
+    var conn = link.conn = peer.connect(PEER_PREFIX + link.code, { reliable: true });
+    conn.on('open', function () {
+      link.note = '';
+      body.classList.add('remote'); wake();
+      updateLinkUI();
+    });
+    conn.on('data', onHostMsg);
+    var lost = function () {
+      if (link.conn !== conn) return;
+      link.conn = null; body.classList.remove('remote');
+      updateLinkUI();
+      retryLater(2500);
+    };
+    conn.on('close', lost); conn.on('error', lost);
+    setTimeout(function () { if (link.conn === conn && !conn.open) { try { conn.close(); } catch (e) {} lost(); } }, 9000);
+  }
+
+  function hostStart() {
+    linkStop(true);
+    link.role = 'host'; link.code = L.hostCode || newCode();
+    L.host = true; L.hostCode = link.code; store.set('tp.link', L);
+    updateLinkUI();
+    openPeer();
+  }
+  function guestStart(code) {
+    linkStop(true);
+    link.role = 'guest'; link.code = code;
+    L.host = false; L.join = code; store.set('tp.link', L);
+    updateLinkUI();
+    openPeer();
+  }
+  function linkStop(keepNote) {
+    clearTimeout(link.retry);
+    var wasGuest = link.role === 'guest' && link.list;
+    if (link.peer) { try { link.peer.destroy(); } catch (e) {} }
+    link.role = null; link.peer = null; link.conns = []; link.conn = null; link.list = null; link.v = -1; link.tries = 0;
+    if (!keepNote) link.note = '';
+    body.classList.remove('remote');
+    if (wasGuest) { pause(); cdEl.hidden = true; buildList(); }   // back to this device's own scripts
+    updateLinkUI();
+  }
+
+  function updateLinkUI() {
+    var host = link.role === 'host', guest = link.role === 'guest';
+    var ready = !!link.peer && link.peer.open && !link.peer.disconnected;
+    var n = link.conns.length, on = host ? n > 0 : remote();
+    var msg = link.note, cls = msg ? 'err' : '';
+    if (host && !msg) {
+      if (n) { msg = n === 1 ? 'Another device is connected.' : n + ' devices are connected.'; cls = 'ok'; }
+      else msg = ready ? 'Waiting for the other device…' : 'Getting ready…';
+    } else if (guest && on) {
+      msg = 'Connected. This device now shows and controls the other one.'; cls = 'ok';
+    } else if (guest && !msg) msg = 'Looking for the other device…';
+    var st = $('linkStatus'); st.textContent = msg; st.className = cls;
+
+    $('oHost').checked = host;
+    $('hostRow').hidden = guest;
+    $('hostBox').hidden = !host;
+    $('hostCode').textContent = host ? showCode(link.code) : '';
+    $('joinRow').hidden = host || guest;
+    $('leaveBtn').hidden = !guest;
+    var btn = $('linkBtn');
+    btn.hidden = !link.role;
+    btn.classList.toggle('on', on); btn.classList.toggle('wait', !!link.role && !on);
+    btn.setAttribute('aria-label', on ? 'Linked to another device' : 'Waiting to link to another device');
+    refreshAwake();
+  }
+
+  $('oHost').addEventListener('change', function () {
+    if (this.checked) hostStart();
+    else { L.host = false; store.set('tp.link', L); linkStop(); }
+  });
+  $('joinCode').addEventListener('input', function () {
+    var d = this.value.replace(/\D/g, '').slice(0, 6);
+    this.value = d.length > 3 ? showCode(d) : d;
+  });
+  $('joinCode').addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); $('joinBtn').click(); } });
+  $('joinBtn').addEventListener('click', function () {
+    var code = $('joinCode').value.replace(/\D/g, '');
+    if (code.length !== 6) { link.note = 'Type the 6-digit code shown on the other device.'; return updateLinkUI(); }
+    $('joinCode').blur();
+    guestStart(code);
+  });
+  $('leaveBtn').addEventListener('click', function () { linkStop(); });
+  $('linkBtn').addEventListener('click', function () {
+    openPanel();
+    $('linkSec').scrollIntoView({ block: 'start' });
+    this.blur();
+  });
+
   /* ---------- Go --------------------------------------------------------- */
   applyLook();
   $('sheetUrl').value = sheetUrl;
   if (pasted) $('paste').value = pasted.text;
   buildList();
   describeSheet();
+  if (L.join) $('joinCode').value = showCode(L.join);
+  updateLinkUI();
+  if (L.host) hostStart();     // sharing was left on: pick up where it left off, same code
 
   // Rotation, text size, width, web-font swap: anything that reflows the script.
   if (window.ResizeObserver) new ResizeObserver(layout).observe(textEl);
