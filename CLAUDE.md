@@ -116,6 +116,19 @@ replaces it). Things to keep true when changing it:
   with a big control pad below: time, back / play / forward, speed, text
   size. A guest that was joined rejoins its last code on every open
   (`tp.link.guest`); Disconnect clears that.
+- **Camera view ("cam").** The camera button (top right; hidden on a joined
+  remote) or `?view=camera` puts the front camera under the script.
+  `html.cam` makes `#stage` transparent and masks it to a band about three
+  lines tall, just below the top buttons, near the lens. Mirror/flip/invert
+  are off there, and the view keeps its own text size (`S.camSize`). Record
+  (red button, or R) arms the countdown, and `MediaRecorder` starts in
+  `start()` with the first word. It stops when Record is tapped again, 1.5 s
+  after End, when the page is hidden, or when the camera track ends (a call).
+  It records MP4 where supported (iOS), else WebM, in 1 s chunks, with the
+  phone's speech processing off. The take lives only in memory until Save
+  (the share sheet: Save Video / Save to Files) or Download. The preview is
+  mirrored; the file is not. The design and iOS limits are in the vault:
+  `20 Content/Playbook/Teleprompter camera overlay.md`.
 - Two layers: `#stage` (script, reading line, timer, countdown) is what
   Mirror/Flip transform; `.chrome` (the controls) is never mirrored.
 - Speed is words per minute, converted through each script's own
@@ -282,7 +295,23 @@ The Apps Script was deployed by Alfa the same day; a wrong-token GET and
 cross-origin access. Deployed (`987b33a`) and checked live: every
 `/teleprompter` variant still gets the PIN screen and a wrong PIN is refused,
 the manifest / worker / icons load without it with the right types and
-headers, and `/.claude/*` is still absent. The iPhone home-screen install,
-unlock and a real edit were left to be done on the phone with the real PIN.
+headers, and `/.claude/*` is still absent. Then on the real devices (Alfa,
+same day): Prompter installed to the iPhone and iPad home screens and unlocked,
+scripts loaded live from the Tracker on both, the phone joined the iPad and
+drove it, and a phone edit landed in Scripts!H11 with the stamp in M11 (the
+existing note kept). Not yet tried on the devices: a conflicting save, and an
+edit appearing on a linked iPad.
+
+**Nov 16 (later) — camera view built** (see the teleprompter section). Tested
+in Chromium at 440×956 and 956×440 with a fake camera (canvas plus tone):
+- The page asks for the camera with speech processing off.
+- Record starts after the countdown, or at once mid-script.
+- The take is a valid MP4 of the right length, and recording stops
+  automatically 1.5 s after End.
+- Done drops the take; leaving the camera stops the tracks.
+- A refused permission shows the iOS Settings message and "Start camera".
+
+Not yet tried on a real iPhone: the permission prompt in the home-screen app,
+the real camera, saving through the share sheet, and a call during a take.
 The camera-overlay mode is designed, not built:
 `~/Projects/_Operations/_knowledge-base/20 Content/Playbook/Teleprompter camera overlay.md`.

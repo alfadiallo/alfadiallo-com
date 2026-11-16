@@ -393,6 +393,58 @@ body.playing #editBtn { display: none; }      /* edits only while paused */
   pointer-events: none; white-space: nowrap;
 }
 
+/* ---------- Camera view ("cam") ---------------------------------------- */
+/* The front camera fills the screen; the script reads in a band right under
+   the lens, a few lines tall, over a soft shade. Mirror/flip/invert don't
+   apply. Only on a device that isn't driving another one. */
+#cam, #camShade, #camMsg, #recBtn, #recBadge { display: none; }
+html.cam { --bg: #000; --fg: #fff; --cue: #74eac0; --band: rgba(255,255,255,.12);
+           --guide: calc(env(safe-area-inset-top) + 74px);   /* just below the top buttons, as near the lens as that allows */
+           --rows: calc(var(--size) * var(--lh)); }
+html.cam #cam {
+  display: block; position: fixed; inset: 0; width: 100%; height: 100%;
+  object-fit: cover; background: #000;
+  transform: scaleX(-1);                 /* a mirror, like the Camera app; the file is not mirrored */
+}
+html.cam #camShade {
+  display: block; position: fixed; inset: 0; pointer-events: none;
+  background: linear-gradient(to bottom, rgba(0,0,0,.66) 0, rgba(0,0,0,.5) calc(var(--guide) + var(--rows) * 2.6), rgba(0,0,0,0) calc(var(--guide) + var(--rows) * 4.4));
+}
+html.cam #stage {
+  background: transparent; transform: none !important;
+  -webkit-mask-image: linear-gradient(to bottom, transparent calc(var(--guide) - var(--rows) * 1.4), #000 calc(var(--guide) - var(--rows) * .2), #000 calc(var(--guide) + var(--rows) * 2.8), transparent calc(var(--guide) + var(--rows) * 4));
+          mask-image: linear-gradient(to bottom, transparent calc(var(--guide) - var(--rows) * 1.4), #000 calc(var(--guide) - var(--rows) * .2), #000 calc(var(--guide) + var(--rows) * 2.8), transparent calc(var(--guide) + var(--rows) * 4));
+}
+html.cam #stage::before, html.cam #stage::after, html.cam #hud { display: none; }
+html.cam #script { width: min(84%, calc(100% - 76px - env(safe-area-inset-left) - env(safe-area-inset-right))); text-shadow: 0 1px 4px rgba(0,0,0,.85); }
+html.cam #countdown { background: transparent; place-items: start center; padding-top: var(--guide); font-size: calc(var(--rows) * 2.6); }
+html.cam #camBtn { color: var(--accent); }
+html.cam #recBtn { display: grid; }
+#recBtn .dot { width: 22px; height: 22px; border-radius: 50%; background: #ff453a; box-shadow: 0 0 0 3px rgba(255,69,58,.28); transition: border-radius .2s, transform .2s; }
+body.recording #recBtn .dot { border-radius: 5px; transform: scale(.82); }
+html.cam body.recording #recBadge {
+  display: flex; align-items: center; gap: 8px;
+  position: fixed; z-index: 11; left: 50%; bottom: calc(env(safe-area-inset-bottom) + 96px); transform: translateX(-50%);
+  padding: 6px 13px; border-radius: 999px; background: rgba(0,0,0,.55); color: #fff;
+  font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums; pointer-events: none;
+}
+#recBadge::before { content: ""; width: 10px; height: 10px; border-radius: 50%; background: #ff453a; animation: pulse 1.4s ease-in-out infinite; }
+html.cam #camMsg.show {
+  display: grid; gap: 14px; justify-items: center;
+  position: fixed; z-index: 12; left: 50%; top: 50%; transform: translate(-50%, -50%);
+  width: min(340px, calc(100vw - 32px)); padding: 22px; border-radius: 18px;
+  background: var(--ui); border: 1px solid var(--ui-line); text-align: center;
+}
+#camMsg p { margin: 0; font-size: 15.5px; line-height: 1.45; }
+#camMsg:not(.retry) #camRetry { display: none; }
+#take { position: fixed; inset: 0; z-index: 35; display: grid; place-items: center; padding: 16px; background: rgba(0,0,0,.6); }
+#take .card { width: min(380px, 100%); padding: 22px; background: var(--ui-solid); border: 1px solid var(--ui-line); border-radius: 18px; }
+#take h2 { margin: 0 0 4px; font-size: 20px; }
+#take p { margin: 0 0 14px; color: var(--ui-soft); font-size: 14.5px; line-height: 1.45; }
+#take .actions { margin: 0 0 10px; }
+#take .actions .btn { flex: 1; }
+#takeNote { margin: 6px 0 0 !important; font-size: 13px !important; }
+
 /* ---------- Phone remote ("pad") --------------------------------------- */
 /* A phone held upright that has joined the iPad: the top part shows the
    script at the reading line, the bottom is a big control pad. */
@@ -432,6 +484,10 @@ html.pad .stepper.small output { font-size: 16px; }
 <body>
 
 <!-- What the reader sees. Tap to start/pause, drag to move. -->
+<!-- Camera view: the front camera under the script (shown only in html.cam). -->
+<video id="cam" playsinline muted autoplay aria-hidden="true"></video>
+<div id="camShade" aria-hidden="true"></div>
+
 <main id="stage" aria-label="Script. Tap to start or pause, drag to move.">
   <div id="track">
     <div id="script">
@@ -458,6 +514,9 @@ html.pad .stepper.small output { font-size: 16px; }
 
 <!-- Top right: full screen + settings -->
 <div class="chrome top right">
+  <button class="icon" id="camBtn" type="button" aria-label="Camera view" hidden>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8a2 2 0 0 1 2-2h2.5l1.5-2h6l1.5 2H19a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><circle cx="12" cy="12.5" r="3.5"/></svg>
+  </button>
   <button class="icon" id="linkBtn" type="button" aria-label="Linked devices" hidden>
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="11" height="14" rx="2"/><rect x="15" y="9" width="6" height="11" rx="1.5"/><path d="M7 21h4"/></svg>
   </button>
@@ -473,6 +532,7 @@ html.pad .stepper.small output { font-size: 16px; }
 <div class="chrome" id="bar">
   <div id="padInfo" aria-hidden="true"><b id="pElapsed">0:00</b><span id="pLeft"></span></div>
   <div class="grp">
+    <button class="icon" id="recBtn" type="button" aria-label="Record"><span class="dot"></span></button>
     <button class="icon" id="restart" type="button" aria-label="Back to the start">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 5v14M19 5.5v13L9 12z"/></svg>
     </button>
@@ -612,6 +672,7 @@ html.pad .stepper.small output { font-size: 16px; }
       <dt>Page Up / Down</dt><dd>Back or forward most of a screen</dd>
       <dt>Home</dt><dd>Back to the start</dd>
       <dt>M</dt><dd>Mirror on or off</dd>
+      <dt>R</dt><dd>Record or stop (camera view)</dd>
     </dl>
     <p>Tip: in Safari, Share &rsaquo; Add to Home Screen installs it as an app called Prompter. The app keeps its own settings, so it asks for the PIN, the scripts link and the token once more.</p>
   </section>
@@ -640,6 +701,24 @@ html.pad .stepper.small output { font-size: 16px; }
 </div>
 <div id="toast" role="status" hidden></div>
 
+<!-- Camera view: status (asking for the camera, errors), the recording clock, a finished take. -->
+<div id="camMsg" role="status"><p id="camMsgText"></p><button class="btn" id="camRetry" type="button">Start camera</button></div>
+<div id="recBadge" aria-live="off"><span id="recTime">0:00</span></div>
+<div id="take" role="dialog" aria-modal="true" aria-labelledby="takeTitle" hidden>
+  <div class="card">
+    <h2 id="takeTitle">Take ready</h2>
+    <p id="takeInfo"></p>
+    <div class="actions">
+      <button class="btn" id="takeSave" type="button">Save…</button>
+      <button class="btn ghost" id="takeDownload" type="button">Download</button>
+    </div>
+    <div class="actions">
+      <button class="btn ghost" id="takeDone" type="button">Done</button>
+    </div>
+    <p id="takeNote">Save opens the share sheet: Save Video puts it in Photos, Save to Files lets you pick a folder. Nothing is kept once you tap Done.</p>
+  </div>
+</div>
+
 <script>
 (function () {
   'use strict';
@@ -662,9 +741,15 @@ html.pad .stepper.small output { font-size: 16px; }
     timer: true, guide: true, countdown: 3
   }, store.get('tp.settings', {}));
   function saveSettings() { store.set('tp.settings', S); }
+  // Camera view state (see "Camera view" below). Declared here because the
+  // text size depends on it: the camera view keeps its own, smaller size.
+  var cam = { on: false, stream: null, rec: null, chunks: [], mime: '', armed: false, t0: 0, tick: 0, endTimer: 0, take: null, opening: false };
+
   // Text size: whatever was chosen, otherwise a size that suits this screen.
   function size() {
-    return S.size || clamp(Math.round(Math.min(innerWidth || screen.width, innerHeight || screen.height) / 12), 30, 80);
+    var short = Math.min(innerWidth || screen.width, innerHeight || screen.height);
+    if (cam.on) return S.camSize || clamp(Math.round(short / 14), 22, 60);
+    return S.size || clamp(Math.round(short / 12), 30, 80);
   }
 
   var SAMPLE = {
@@ -1079,7 +1164,11 @@ html.pad .stepper.small output { font-size: 16px; }
       var dt = (t - last) / 1000;
       elapsed += Math.min(dt, 1);                       // the clock keeps true time
       if (!dragging) pos += pxPerSec * Math.min(dt, 0.1); // the text never lurches after a hiccup
-      if (pos >= max) { pos = max; render(); pause(); return; }
+      if (pos >= max) {
+        pos = max; render(); pause();
+        if (cam.rec) { clearTimeout(cam.endTimer); cam.endTimer = setTimeout(stopRec, 1500); }   // a short tail after "End"
+        return;
+      }
       render();
     }
     last = t;
@@ -1087,6 +1176,7 @@ html.pad .stepper.small output { font-size: 16px; }
   }
 
   function start() {
+    if (cam.armed) { cam.armed = false; startRec(); }   // Record was pressed: film from the first word
     playing = true; last = 0;
     body.classList.add('playing');
     $('play').setAttribute('aria-label', 'Pause');
@@ -1097,6 +1187,7 @@ html.pad .stepper.small output { font-size: 16px; }
   }
   function pause() {
     cancelCountdown();
+    cam.armed = false;                      // a countdown cancelled before Record began
     if (playing) {
       playing = false;
       cancelAnimationFrame(raf);
@@ -1149,7 +1240,7 @@ html.pad .stepper.small output { font-size: 16px; }
   var wakeLock = null, wakePending = false;
   function refreshAwake() {
     if (!('wakeLock' in navigator)) return;
-    var want = playing || !!counting || remote() || (link.role === 'host' && link.conns.length > 0);
+    var want = playing || !!counting || cam.on || remote() || (link.role === 'host' && link.conns.length > 0);
     if (want && !wakeLock && !wakePending && !document.hidden) {
       wakePending = true;
       navigator.wakeLock.request('screen').then(function (l) {
@@ -1160,8 +1251,9 @@ html.pad .stepper.small output { font-size: 16px; }
     } else if (!want && wakeLock) { wakeLock.release().catch(function () {}); wakeLock = null; }
   }
   document.addEventListener('visibilitychange', function () {
-    if (document.hidden) pause();
+    if (document.hidden) { pause(); camHidden(); }
     else {
+      camShown();
       linkWake(); refreshAwake();          // the browser drops the screen lock whenever the page is hidden
       if (isBridge(sheetUrl) && !link.list && link.role !== 'guest' && !editing) loadSheet(sheetUrl, true);
     }
@@ -1234,7 +1326,7 @@ html.pad .stepper.small output { font-size: 16px; }
     if (remote()) { holdSpeed = performance.now() + 500; cmd('speed', S.wpm); }
     else { saveSettings(); sync(); }
   }
-  function setSize(v) { S.size = clamp(Math.round(v), 20, 200); saveSettings(); applyLook(); layout(); wake(); }
+  function setSize(v) { S[cam.on ? 'camSize' : 'size'] = clamp(Math.round(v), 20, 200); saveSettings(); applyLook(); layout(); wake(); }
 
   hold('slower', function () { setSpeed(S.wpm - 5); });
   hold('faster', function () { setSpeed(S.wpm + 5); });
@@ -1293,6 +1385,7 @@ html.pad .stepper.small output { font-size: 16px; }
       case 'PageUp': nudge(-h * 0.6); break;
       case 'PageDown': nudge(h * 0.6); break;
       case 'Home': restart(); break;
+      case 'r': case 'R': if (cam.on && !e.repeat) toggleRec(); else handled = false; break;
       case 'm': case 'M':
         S.mirror = !S.mirror; $('oMirror').checked = S.mirror; saveSettings(); applyLook(); break;
       default: handled = false;
@@ -1409,6 +1502,167 @@ html.pad .stepper.small output { font-size: 16px; }
     $('edWords').textContent = wordsIn(editing.base) + ' words';
   });
   $('edText').addEventListener('input', function () { $('edWords').textContent = wordsIn(this.value) + ' words'; });
+
+  /* ---------- Camera view ------------------------------------------------ */
+  // The front camera fills the screen and the script reads in a band right
+  // under the lens. Record films from the first word (after the countdown) and
+  // stops a moment after "End", or when Record is tapped again. The take stays
+  // in memory until it is saved through the share sheet or downloaded.
+  // Never on a device that is driving another one (that device has no script
+  // of its own to read).
+  var video = $('cam');
+  function camSupported() { return !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia); }
+  function camMsg(text, retry) {
+    var el = $('camMsg');
+    $('camMsgText').textContent = text || '';
+    el.classList.toggle('show', !!text);
+    el.classList.toggle('retry', !!retry);
+  }
+  function camLive() { return !!cam.stream && cam.stream.getVideoTracks().some(function (t) { return t.readyState === 'live'; }); }
+  function camOpen() {
+    if (cam.opening || camLive()) return;
+    cam.opening = true;
+    camMsg('Starting the camera…');
+    var video1 = { facingMode: 'user', width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: 30 } };
+    // Speech processing is tuned for calls and thins a voice: off.
+    var audio1 = { echoCancellation: false, noiseSuppression: false, autoGainControl: false };
+    navigator.mediaDevices.getUserMedia({ video: video1, audio: audio1 }).catch(function (err) {
+      // No microphone (or it was refused): still show the camera, silent.
+      if (err && err.name !== 'NotAllowedError') return navigator.mediaDevices.getUserMedia({ video: video1 });
+      throw err;
+    }).then(function (stream) {
+      cam.opening = false;
+      if (!cam.on) { stream.getTracks().forEach(function (t) { t.stop(); }); return; }
+      camRelease();
+      cam.stream = stream;
+      video.srcObject = stream;
+      var p = video.play(); if (p && p.catch) p.catch(function () {});
+      stream.getTracks().forEach(function (t) { t.addEventListener('ended', camLost); });
+      camMsg(stream.getAudioTracks().length ? '' : 'No microphone: takes will be silent.');
+      if (!stream.getAudioTracks().length) setTimeout(function () { if (cam.stream === stream) camMsg(''); }, 3000);
+    }, function (err) {
+      cam.opening = false;
+      if (!cam.on) return;
+      camMsg(err && err.name === 'NotAllowedError'
+        ? 'Camera access was refused. Allow the camera (and microphone) for this site or app in iOS Settings, then try again.'
+        : "Couldn't start the camera." + (err && err.name === 'NotReadableError' ? ' Another app may be using it.' : ''), true);
+    });
+  }
+  function camRelease() {
+    if (cam.stream) cam.stream.getTracks().forEach(function (t) { t.stop(); });
+    cam.stream = null;
+    video.srcObject = null;
+  }
+  // A call, Siri or another app took the camera.
+  function camLost() {
+    if (!cam.on) return;
+    stopRec();
+    if (!document.hidden) camMsg('The camera stopped.', true);
+  }
+  function camHidden() { if (cam.on) stopRec(); }
+  function camShown() { if (cam.on && !camLive()) camOpen(); }
+
+  function enterCam() {
+    if (cam.on || remote() || link.role === 'guest' || !camSupported()) return;
+    pause();
+    cam.on = true;
+    root.classList.add('cam');
+    applyLook(); layout(); updateLinkUI();
+    camOpen();
+  }
+  function exitCam() {
+    if (!cam.on) return;
+    if (cam.rec && !confirm('Stop recording and leave the camera?')) return;
+    stopRec();
+    cam.on = false; cam.armed = false;
+    camRelease(); camMsg('');
+    root.classList.remove('cam');
+    applyLook(); layout(); updateLinkUI();
+  }
+
+  function pickMime() {
+    if (!window.MediaRecorder || !MediaRecorder.isTypeSupported) return '';
+    var types = ['video/mp4;codecs=avc1,mp4a.40.2', 'video/mp4', 'video/webm;codecs=vp9,opus', 'video/webm'];
+    for (var i = 0; i < types.length; i++) if (MediaRecorder.isTypeSupported(types[i])) return types[i];
+    return '';
+  }
+  function startRec() {
+    if (!cam.on || cam.rec || !camLive()) return;
+    if (!window.MediaRecorder) { camMsg("This browser can't record video."); return; }
+    var mime = pickMime(), rec;
+    try { rec = new MediaRecorder(cam.stream, mime ? { mimeType: mime, videoBitsPerSecond: 8000000 } : undefined); }
+    catch (e) { try { rec = new MediaRecorder(cam.stream); } catch (e2) { camMsg("Couldn't start recording.", false); return; } }
+    var chunks = cam.chunks = [];
+    cam.mime = rec.mimeType || mime || 'video/mp4';
+    rec.ondataavailable = function (e) { if (e.data && e.data.size) chunks.push(e.data); };
+    rec.onstop = function () { finishTake(chunks, rec); };
+    rec.start(1000);                        // a chunk a second, so a long take never sits in one buffer
+    cam.rec = rec; cam.t0 = Date.now();
+    body.classList.add('recording');
+    $('recBtn').setAttribute('aria-label', 'Stop recording');
+    clearInterval(cam.tick);
+    cam.tick = setInterval(function () { $('recTime').textContent = fmt((Date.now() - cam.t0) / 1000); }, 500);
+    $('recTime').textContent = '0:00';
+  }
+  function stopRec() {
+    clearTimeout(cam.endTimer);
+    cam.armed = false;
+    var rec = cam.rec;
+    if (!rec) return;
+    cam.rec = null;
+    clearInterval(cam.tick);
+    body.classList.remove('recording');
+    $('recBtn').setAttribute('aria-label', 'Record');
+    cam.secs = (Date.now() - cam.t0) / 1000;
+    try { if (rec.state !== 'inactive') rec.stop(); else finishTake(cam.chunks, rec); } catch (e) { finishTake(cam.chunks, rec); }
+  }
+  function toggleRec() {
+    if (!cam.on) return;
+    if (cam.rec) { stopRec(); pause(); return; }
+    if (!camLive()) return camOpen();
+    if (playing) startRec();
+    else { cam.armed = true; play(); if (!playing && !counting) cam.armed = false; }
+  }
+
+  function finishTake(chunks, rec) {
+    if (rec.done) return;
+    rec.done = true;
+    if (!chunks.length) return;
+    var type = (cam.mime || 'video/mp4').split(';')[0];
+    var blob = new Blob(chunks, { type: type });
+    var d = new Date(), two = function (n) { return (n < 10 ? '0' : '') + n; };
+    var base = cur && cur.id ? cur.id + '-v' + cur.version : 'prompter';
+    var name = base + '-take-' + d.getFullYear() + two(d.getMonth() + 1) + two(d.getDate()) + '-' + two(d.getHours()) + two(d.getMinutes()) +
+      (/mp4/.test(type) ? '.mp4' : '.webm');
+    cam.take = { blob: blob, name: name, saved: false };
+    $('takeInfo').textContent = fmt(cam.secs || 0) + ' · ' + (blob.size / 1048576).toFixed(blob.size < 10485760 ? 1 : 0) + ' MB · ' + name;
+    $('take').hidden = false;
+  }
+  function downloadTake() {
+    var t = cam.take; if (!t) return;
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(t.blob); a.download = t.name;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function () { URL.revokeObjectURL(a.href); }, 60000);
+    t.saved = true;
+  }
+  $('takeSave').addEventListener('click', function () {
+    var t = cam.take; if (!t) return;
+    var file = new File([t.blob], t.name, { type: t.blob.type });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      navigator.share({ files: [file], title: t.name }).then(function () { t.saved = true; toast('Take saved'); }, function () {});
+    } else downloadTake();
+  });
+  $('takeDownload').addEventListener('click', downloadTake);
+  $('takeDone').addEventListener('click', function () {
+    if (cam.take && !cam.take.saved && !confirm('This take has not been saved. Throw it away?')) return;
+    cam.take = null;
+    $('take').hidden = true;
+  });
+
+  $('camBtn').addEventListener('click', function () { this.blur(); if (cam.on) exitCam(); else enterCam(); });
+  $('recBtn').addEventListener('click', function () { this.blur(); toggleRec(); });
+  $('camRetry').addEventListener('click', function () { camRelease(); camOpen(); });
 
   /* ---------- Two devices ------------------------------------------------ */
   // One device shares ("host"), the other joins with its 6-digit code ("guest").
@@ -1615,6 +1869,7 @@ html.pad .stepper.small output { font-size: 16px; }
     openPeer();
   }
   function guestStart(code) {
+    if (cam.on) { stopRec(); exitCam(); }   // a remote shows no camera
     linkStop(true);
     link.role = 'guest'; link.code = code;
     L.host = false; L.join = code; L.guest = true; store.set('tp.link', L);
@@ -1653,6 +1908,7 @@ html.pad .stepper.small output { font-size: 16px; }
     $('leaveBtn').hidden = !guest;
     var btn = $('linkBtn');
     btn.hidden = !link.role;
+    $('camBtn').hidden = !camSupported() || guest;
     btn.classList.toggle('on', on); btn.classList.toggle('wait', !!link.role && !on);
     btn.setAttribute('aria-label', on ? 'Linked to another device' : 'Waiting to link to another device');
     refreshAwake();
@@ -1701,6 +1957,8 @@ html.pad .stepper.small output { font-size: 16px; }
   updateLinkUI();
   if (L.host) hostStart();     // sharing was left on: pick up where it left off, same code
   else if (L.guest && L.join) guestStart(L.join);   // was joined: join again (the phone app reopening)
+  // ?view=camera opens straight into the camera view.
+  else if (/[?&]view=camera\b/.test(location.search)) enterCam();
   // The installed app opens at ?view=remote. With nothing set up yet, start at "Join with a code".
   else if (/[?&]view=remote\b/.test(location.search) && !sheetUrl) {
     openPanel();
