@@ -106,7 +106,8 @@ function page(status, opts) {
       method: 'POST', credentials: 'same-origin', cache: 'no-store',
       headers: { 'x-tp-pin': encodeURIComponent(pin.value) }
     }).then(function (res) {
-      if (res.ok) { location.replace('/teleprompter'); return; }
+      // Back to the same address, so the home-screen app keeps its ?view=remote.
+      if (res.ok) { location.replace(location.pathname + location.search); return; }
       go.disabled = false; pin.value = ''; pin.focus();
       msg.textContent = res.status === 401
         ? 'That PIN did not match. Try again.'

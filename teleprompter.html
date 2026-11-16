@@ -16,6 +16,12 @@
 <meta name="apple-mobile-web-app-title" content="Prompter">
 <meta name="theme-color" content="#000000">
 
+<!-- Installable app ("Prompter"). These files are named prompter-* so the PIN
+     gate (middleware.js, which only guards teleprompter*) never blocks them;
+     they hold nothing private. -->
+<link rel="manifest" href="/prompter.webmanifest">
+<link rel="apple-touch-icon" href="/prompter-icon-180.png">
+
 <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2032%2032'%3E%3Cpath%20d='M2%2020.4Q2%2013.6%206.6%207.8Q11.2%202.1%2016.8%202.1Q18.4%202.1%2019.5%202.6Q20.6%203.2%2021.1%204.3Q21.7%205.3%2021.9%206.1Q22.2%207%2022.3%208.2Q22.9%204.8%2023.6%203.5Q24.3%202.1%2025.8%202.1Q27.3%202.1%2027.3%203.6Q27.3%204.5%2026%208.6Q24.7%2012.8%2023.7%2015.3Q21.7%2019.6%2021.7%2022.4Q21.7%2024.2%2022.5%2025Q23.4%2025.7%2024.5%2025.7Q27.4%2025.7%2029.1%2021.5Q29.4%2020.9%2029.7%2021.1Q30%2021.4%2030%2021.9Q30%2023.7%2027.8%2026.8Q25.6%2029.9%2022.4%2029.9Q18.4%2029.9%2018.4%2024.8Q18.4%2024.7%2018.4%2024.5Q18.4%2024.3%2018.4%2024.3H18.4Q14.8%2029.9%209.9%2029.9Q6.3%2029.9%204.1%2027.3Q2%2024.7%202%2020.4ZM5.8%2022.1Q5.8%2028.3%2010.3%2028.3Q13%2028.3%2015.1%2026.2Q17.3%2024.1%2018.6%2021Q19.8%2017.9%2020.5%2014.8Q21.2%2011.8%2021.2%209.6Q21.2%203.3%2016.6%203.3Q14.1%203.3%2011.9%205.3Q9.8%207.3%208.5%2010.4Q7.2%2013.4%206.5%2016.5Q5.8%2019.6%205.8%2022.1Z'%20fill='%23000'/%3E%3C/svg%3E">
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -348,6 +354,79 @@ details b, #panel p b { color: var(--ui-ink); font-weight: 500; }
 @media (prefers-reduced-motion: reduce) {
   .chrome, #panel, #scrim { transition: none; }
 }
+
+/* ---------- Edit button, editor, toast ---------------------------------- */
+body.playing #editBtn { display: none; }      /* edits only while paused */
+#linkSec { scroll-margin-top: 56px; }          /* clear of the sticky Settings header */
+#padInfo { display: none; }
+
+#editor {
+  position: fixed; inset: 0; z-index: 30;
+  background: var(--ui-solid); color: var(--ui-ink);
+  padding: calc(env(safe-area-inset-top) + 8px) calc(env(safe-area-inset-right) + 16px) calc(env(safe-area-inset-bottom) + 16px) calc(env(safe-area-inset-left) + 16px);
+  overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain;
+}
+.ed-in { width: min(760px, 100%); min-height: 100%; margin: 0 auto; display: flex; flex-direction: column; gap: 10px; }
+.ed-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 52px; }
+.ed-head .btn { flex: none; }
+.ed-name { flex: 1; min-width: 0; text-align: center; }
+.ed-name b { display: block; font-size: 17px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ed-name small { display: block; font-size: 12.5px; color: var(--ui-soft); font-variant-numeric: tabular-nums; }
+#edText {
+  flex: 1; width: 100%; min-height: 220px; padding: 14px;
+  border: 1px solid var(--ui-line); border-radius: 14px; background: #0e1014;
+  font-family: var(--font-read); font-size: 19px; line-height: 1.5; resize: none;
+}
+.ed-foot { display: flex; justify-content: space-between; gap: 12px; font-size: 14px; color: var(--ui-soft); }
+#edStatus { min-height: 1.4em; margin: 0; font-size: 15px; }
+#edStatus.ok { color: var(--accent); }
+#edStatus.err { color: var(--warn); }
+#edConflict { padding: 14px; border: 1px solid var(--warn); border-radius: 14px; }
+#edConflict p { margin: 0 0 8px; font-size: 14.5px; color: var(--ui-soft); }
+#edCurrent { margin: 0; padding: 10px 12px; border-radius: 10px; background: #0e1014; font-family: var(--font-read); font-size: 16px; line-height: 1.45; white-space: pre-wrap; max-height: 30dvh; overflow-y: auto; }
+
+#toast {
+  position: fixed; z-index: 40; left: 50%; top: calc(env(safe-area-inset-top) + 70px);
+  transform: translateX(-50%);
+  padding: 10px 16px; border-radius: 999px;
+  background: var(--accent); color: var(--on-accent); font-size: 15px; font-weight: 700;
+  pointer-events: none; white-space: nowrap;
+}
+
+/* ---------- Phone remote ("pad") --------------------------------------- */
+/* A phone held upright that has joined the iPad: the top part shows the
+   script at the reading line, the bottom is a big control pad. */
+html.pad { --guide: 24dvh; --padH: calc(286px + env(safe-area-inset-bottom)); }
+html.pad #stage { bottom: var(--padH); }
+html.pad #countdown { font-size: min(36vw, 24dvh); }
+html.pad #progress { bottom: var(--padH); height: 4px; }
+html.pad #hud { display: none; }
+html.pad #fs { display: none; }               /* iPhone Safari has no full screen for pages anyway */
+html.pad .top.left { right: calc(env(safe-area-inset-right) + 124px); }
+html.pad .top.left #pick { flex: 1; min-width: 0; max-width: none; }
+html.pad #bar {
+  left: 0; right: 0; bottom: 0; transform: none;
+  width: auto; max-width: none; height: var(--padH);
+  border-radius: 24px 24px 0 0; border-width: 1px 0 0;
+  transition: none;                /* no slide from the centred bar when the pad turns on */
+  padding: 12px calc(env(safe-area-inset-right) + 16px) calc(env(safe-area-inset-bottom) + 12px) calc(env(safe-area-inset-left) + 16px);
+  display: flex; flex-direction: column; flex-wrap: nowrap; align-items: stretch; justify-content: flex-start; gap: 12px;
+}
+html.pad #padInfo {
+  display: flex; align-items: baseline; justify-content: space-between;
+  font-variant-numeric: tabular-nums;
+}
+html.pad #padInfo b { font-size: 22px; }
+html.pad #padInfo span { font-size: 15px; color: var(--ui-soft); }
+html.pad #bar .grp { justify-content: space-between; gap: 8px; }
+html.pad #bar .icon { width: 58px; height: 58px; border-radius: 16px; background: var(--ui-2); }
+html.pad #bar .icon svg { width: 26px; height: 26px; }
+html.pad #bar #play { flex: 1; height: 76px; margin: 0; border-radius: 20px; background: var(--accent); color: var(--on-accent); }
+html.pad #bar #play svg { width: 34px; height: 34px; }
+html.pad .stepper .lbl { display: inline; min-width: 52px; margin: 0; }
+html.pad .stepper output { flex: 1; font-size: 20px; }
+html.pad .stepper.small .icon { width: 48px; height: 44px; }
+html.pad .stepper.small output { font-size: 16px; }
 </style>
 </head>
 <body>
@@ -372,6 +451,9 @@ details b, #panel p b { color: var(--ui-ink); font-weight: 500; }
   <button class="icon" id="refresh" type="button" aria-label="Reload scripts from the Google Sheet" hidden>
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 6.3M20 4v7h-7"/></svg>
   </button>
+  <button class="icon" id="editBtn" type="button" aria-label="Edit the chunk at the reading line" hidden>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16z"/><path d="m13.5 6.5 4 4"/></svg>
+  </button>
 </div>
 
 <!-- Top right: full screen + settings -->
@@ -389,6 +471,7 @@ details b, #panel p b { color: var(--ui-ink); font-weight: 500; }
 
 <!-- Bottom: transport, speed, text size -->
 <div class="chrome" id="bar">
+  <div id="padInfo" aria-hidden="true"><b id="pElapsed">0:00</b><span id="pLeft"></span></div>
   <div class="grp">
     <button class="icon" id="restart" type="button" aria-label="Back to the start">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 5v14M19 5.5v13L9 12z"/></svg>
@@ -410,7 +493,7 @@ details b, #panel p b { color: var(--ui-ink); font-weight: 500; }
     <output id="wpm" aria-live="polite"></output>
     <button class="icon" id="faster" type="button" aria-label="Faster"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 12h12M12 6v12"/></svg></button>
   </div>
-  <div class="grp stepper">
+  <div class="grp stepper small">
     <span class="lbl">Text</span>
     <button class="icon" id="smaller" type="button" aria-label="Smaller text"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 12h12"/></svg></button>
     <output id="sz" aria-live="polite"></output>
@@ -430,8 +513,12 @@ details b, #panel p b { color: var(--ui-ink); font-weight: 500; }
   <section>
     <h3>Scripts</h3>
     <label class="field">
-      <span>Google Sheet link</span>
-      <input id="sheetUrl" type="url" inputmode="url" placeholder="https://docs.google.com/spreadsheets/d/…" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false">
+      <span>Scripts link</span>
+      <input id="sheetUrl" type="url" inputmode="url" placeholder="A Google Sheet link, or the Tracker's /exec link" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false">
+    </label>
+    <label class="field">
+      <span>Edit token</span>
+      <input id="token" type="password" placeholder="Only for the Tracker link" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false">
     </label>
     <div class="actions">
       <button class="btn" id="loadSheet" type="button">Load scripts</button>
@@ -447,6 +534,16 @@ details b, #panel p b { color: var(--ui-ink); font-weight: 500; }
         <li>Copy the link and paste it above. To use a particular tab, copy the link while that tab is open.</li>
       </ol>
       <p>Anyone who has the link can read the sheet, so keep confidential material out of it. The link is saved on this device only. Words in [square brackets] show as cues to read silently.</p>
+    </details>
+    <details>
+      <summary>How to connect the Tracker (read and edit)</summary>
+      <ol>
+        <li>Paste the Tracker's web-app link (it ends in <b>/exec</b>) above, and its edit token below. Both stay on this device only.</li>
+        <li>Scripts are read live from the Tracker's Scripts tab, one per ID and version, and checked again every 30 seconds while paused.</li>
+        <li>To edit, pause, bring the part you want to change to the reading line, and tap the pencil. Saving writes that chunk's Spoken cell and notes the edit in its Notes cell.</li>
+        <li>A phone joined to an iPad that uses the Tracker only needs the edit token: the link comes from the iPad.</li>
+      </ol>
+      <p>If the cell was changed in the Sheet since it was loaded, the save is refused and you see the Sheet's version.</p>
     </details>
     <label class="field">
       <span>Or paste a script</span>
@@ -516,9 +613,32 @@ details b, #panel p b { color: var(--ui-ink); font-weight: 500; }
       <dt>Home</dt><dd>Back to the start</dd>
       <dt>M</dt><dd>Mirror on or off</dd>
     </dl>
-    <p>Tip: in Safari, Share &rsaquo; Add to Home Screen opens the teleprompter full screen.</p>
+    <p>Tip: in Safari, Share &rsaquo; Add to Home Screen installs it as an app called Prompter. The app keeps its own settings, so it asks for the PIN, the scripts link and the token once more.</p>
   </section>
 </aside>
+
+<!-- Editing one chunk of a Tracker script. Saves straight to the Sheet. -->
+<div id="editor" role="dialog" aria-modal="true" aria-labelledby="edTitle" hidden>
+  <div class="ed-in">
+    <div class="ed-head">
+      <button class="btn ghost" id="edCancel" type="button">Cancel</button>
+      <div class="ed-name"><b id="edTitle"></b><small id="edMeta"></small></div>
+      <button class="btn" id="edSave" type="button">Save</button>
+    </div>
+    <p id="edStatus" role="status"></p>
+    <div id="edConflict" hidden>
+      <p>This chunk was changed in the Sheet after it was loaded, so nothing was saved. The Sheet now says:</p>
+      <p id="edCurrent"></p>
+      <div class="actions">
+        <button class="btn" id="edOverwrite" type="button">Save mine over it</button>
+        <button class="btn ghost" id="edTakeTheirs" type="button">Use the Sheet's text</button>
+      </div>
+    </div>
+    <textarea id="edText" spellcheck="true" autocapitalize="sentences" aria-label="Spoken text"></textarea>
+    <div class="ed-foot"><span id="edWords"></span><span>Blank line = new paragraph</span></div>
+  </div>
+</div>
+<div id="toast" role="status" hidden></div>
 
 <script>
 (function () {
@@ -665,6 +785,56 @@ details b, #panel p b { color: var(--ui-ink); font-weight: 500; }
     });
   }
 
+  /* ---------- The Tracker (Apps Script web app) ------------------------- */
+  // A Google Apps Script web app bound to the Web & Social Tracker reads the
+  // Scripts tab live (one script per ID + version, one chunk per row) and saves
+  // an edited chunk back. Its link and its token are kept on this device only.
+  // Its replies are read cross-origin: GET, and POST with a text/plain body (a
+  // "simple" request, so the browser sends no preflight Apps Script can't answer).
+  var BRIDGE_RE = /^https:\/\/script\.google\.com\/(?:a\/macros\/[^\/]+|macros)\/s\/[\w-]+\/exec(?:[?#].*)?$/;
+  function isBridge(u) { return BRIDGE_RE.test((u || '').trim()); }
+  var token = store.get('tp.token', '');
+
+  function bridgeFetch(url, opts) {
+    return fetch(url.split(/[?#]/)[0] + (opts.query || ''), {
+      method: opts.body ? 'POST' : 'GET',
+      body: opts.body ? JSON.stringify(opts.body) : undefined,
+      headers: opts.body ? { 'Content-Type': 'text/plain;charset=utf-8' } : undefined,
+      credentials: 'omit', cache: 'no-store', redirect: 'follow'
+    }).then(function (res) {
+      if (!res.ok) throw new Error('http ' + res.status);
+      return res.json();
+    }).catch(function (err) {
+      var e = new Error(navigator.onLine === false
+        ? "You're offline."
+        : "Couldn't reach the Tracker link. Check the link, and that it is deployed with access for Anyone.");
+      e.network = true;
+      throw e;
+    });
+  }
+  function joinChunks(ch) { return ch.map(function (c) { return c.text.trim(); }).join('\n\n'); }
+  // Accepts a script from the Tracker or from the iPad's list; drops anything malformed.
+  function toScript(s) {
+    if (!s) return null;
+    if (!Array.isArray(s.chunks)) return typeof s.text === 'string' ? { title: String(s.title || 'Script'), text: s.text } : null;
+    var chunks = s.chunks.filter(function (c) { return c && typeof c.text === 'string' && c.text.trim() && +c.row >= 2; })
+      .map(function (c) { return { row: +c.row, chunk: c.chunk, name: String(c.name || ''), text: c.text.replace(/\r\n?/g, '\n') }; });
+    if (!chunks.length) return null;
+    return { title: String(s.title || s.id), id: String(s.id), version: s.version, chunks: chunks, text: joinChunks(chunks) };
+  }
+  function fetchBridge(url) {
+    if (!token) return Promise.reject(new Error('Type the edit token for the Tracker link (below the link) first.'));
+    return bridgeFetch(url, { query: '?token=' + encodeURIComponent(token) + '&t=' + Date.now() }).then(function (j) {
+      if (!j || !j.ok) throw new Error(j && j.error === 'token'
+        ? "The Tracker didn't accept the edit token. Check it in Settings."
+        : 'The Tracker link answered with an error.');
+      var list = (j.scripts || []).map(toScript).filter(Boolean);
+      if (!list.length) throw new Error('The Tracker has no scripts with an ID and spoken text.');
+      return list;
+    });
+  }
+  function fetchScripts(url) { return isBridge(url) ? fetchBridge(url) : fetchSheet(url); }
+
   /* ---------- Script list ------------------------------------------------ */
   var sheetUrl = store.get('tp.sheetUrl', '');
   var sheetScripts = store.get('tp.scripts', null);     // last good copy, so it still works offline
@@ -694,14 +864,58 @@ details b, #panel p b { color: var(--ui-ink); font-weight: 500; }
     var next = scripts[i];
     if (!next) return;
     var same = cur && cur.title === next.title && cur.text === next.text;
+    // Same script with new words (an edit): stay at the same place in it.
+    var keep = !same && cur && cur.title === next.title && max ? anchorAt() : null;
     cur = next; curIndex = i; pick.value = i;
     if (!link.list) store.set('tp.last', cur.title);
+    updateEditBtn();
     if (same) return sync();               // a refresh that changed nothing keeps your place
+    if (keep) return rerender(keep);
     pause();
     renderScript();
     pos = 0; elapsed = 0;
     layout();
     sync();
+  }
+  // Redraws the current script and puts the same chunk back at the reading line.
+  function rerender(a) {
+    renderScript();
+    max = textEl.offsetHeight;
+    restoreAnchor(a);
+    layout();
+    sync();
+  }
+
+  // Where the reading line is, as "this paragraph (or chunk), this far in", so
+  // it survives the text around it changing length.
+  function paraTops() {
+    var base = textEl.offsetTop;
+    return Array.prototype.map.call(textEl.children, function (p) { return { el: p, top: p.offsetTop - base, c: p.dataset.c }; });
+  }
+  function anchorAt() {
+    var ps = paraTops(), hit = null;
+    for (var i = 0; i < ps.length && ps[i].top <= pos + 1; i++) hit = ps[i];
+    if (!hit) return null;
+    if (hit.c != null) {
+      var first = ps.filter(function (p) { return p.c === hit.c; })[0];
+      return { c: hit.c, off: pos - first.top };
+    }
+    return { i: ps.indexOf(hit), off: pos - hit.top };
+  }
+  function restoreAnchor(a) {
+    var ps = paraTops(), start = -1, end = max;
+    for (var i = 0; i < ps.length; i++) {
+      var match = a.c != null ? ps[i].c === a.c : i === a.i;
+      if (match && start < 0) start = ps[i].top;
+      else if (start >= 0 && !match) { end = ps[i].top - 1; break; }
+    }
+    pos = start < 0 ? clamp(pos, 0, max) : clamp(start + Math.min(a.off, end - start), 0, max);
+  }
+  // Which chunk sits at the reading line (Tracker scripts only); -1 if none.
+  function chunkAtLine() {
+    var ps = paraTops(), hit = ps[0], slack = lines(0.5);
+    for (var i = 0; i < ps.length && ps[i].top <= pos + slack; i++) hit = ps[i];
+    return hit && hit.c != null ? +hit.c : -1;
   }
   // What the menu does: on a joined device it asks the other device to switch.
   function chooseScript(i) {
@@ -715,10 +929,16 @@ details b, #panel p b { color: var(--ui-ink); font-weight: 500; }
   function renderScript() {
     textEl.textContent = '';
     var text = cur.text.replace(/\r\n?/g, '\n');
-    text.split(/\n\s*\n/).forEach(function (para) {
+    // Tracker scripts are drawn chunk by chunk, each paragraph tagged with its
+    // chunk, so the editor knows which Sheet row is at the reading line.
+    var parts = cur.chunks
+      ? cur.chunks.map(function (c, i) { return { t: c.text.replace(/\r\n?/g, '\n'), c: String(i) }; })
+      : [{ t: text, c: null }];
+    parts.forEach(function (part) { part.t.split(/\n\s*\n/).forEach(function (para) {
       para = para.trim();
       if (!para) return;
       var p = document.createElement('p');
+      if (part.c != null) p.dataset.c = part.c;
       para.split(CUE_RE).forEach(function (part, i) {
         if (!part) return;
         if (i % 2) {
@@ -728,7 +948,7 @@ details b, #panel p b { color: var(--ui-ink); font-weight: 500; }
         } else p.appendChild(document.createTextNode(part));
       });
       textEl.appendChild(p);
-    });
+    }); });
     words = (text.replace(new RegExp(CUE_RE.source, 'g'), ' ').match(/\S+/g) || []).length;
   }
 
@@ -736,21 +956,26 @@ details b, #panel p b { color: var(--ui-ink); font-weight: 500; }
   function describeSheet() {
     if (!sheetUrl || !sheetScripts) return setStatus('');
     var n = sheetScripts.list.length, when = new Date(sheetScripts.at);
-    setStatus(n + (n === 1 ? ' script' : ' scripts') + ' loaded, updated ' +
-      when.toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) + '.', 'ok');
+    setStatus(n + (n === 1 ? ' script' : ' scripts') + (isBridge(sheetUrl) ? ' from the Tracker' : '') + ' loaded, updated ' +
+      when.toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', second: isBridge(sheetUrl) ? '2-digit' : undefined }) + '.', 'ok');
   }
 
-  var loading = false;
+  var loading = false, loadAgain = false, pendingApply = false;
   function loadSheet(url, quiet) {
-    if (loading) return;
+    // A reload asked for mid-load (the phone just saved an edit) runs right after.
+    if (loading) { loadAgain = true; return; }
     loading = true;
     $('refresh').classList.add('spin'); $('loadSheet').disabled = true;
     if (!quiet) setStatus('Loading…');
-    return fetchSheet(url).then(function (list) {
+    return fetchScripts(url).then(function (list) {
+      var changed = !sheetScripts || sheetUrl !== url || JSON.stringify(sheetScripts.list) !== JSON.stringify(list);
       sheetUrl = url; sheetScripts = { list: list, at: Date.now() };
       store.set('tp.sheetUrl', sheetUrl); store.set('tp.scripts', sheetScripts);
-      // Never swap the text out from under someone mid-read.
-      if (!playing) buildList(quiet && cur ? cur.title : (cur && cur !== SAMPLE ? cur.title : list[0].title));
+      if (changed || pendingApply || !quiet) {
+        // Never swap the text out from under someone mid-read: it goes in at the next pause.
+        if (playing || counting) pendingApply = true;
+        else { pendingApply = false; buildList(quiet && cur ? cur.title : (cur && cur !== SAMPLE ? cur.title : list[0].title)); }
+      }
       describeSheet();
     }).catch(function (err) {
       if (quiet && sheetScripts) setStatus(err.message + ' Showing the copy saved on this device.', 'err');
@@ -758,13 +983,29 @@ details b, #panel p b { color: var(--ui-ink); font-weight: 500; }
     }).then(function () {
       loading = false;
       $('refresh').classList.remove('spin'); $('loadSheet').disabled = false;
+      if (loadAgain) { loadAgain = false; if (sheetUrl) loadSheet(sheetUrl, true); }
     });
   }
+  function applyPending() {
+    if (!pendingApply || playing || counting || link.list || !sheetScripts) return;
+    pendingApply = false;
+    buildList(cur && cur.title);
+  }
+  // Tracker scripts: look again every 30 seconds while paused and on screen.
+  setInterval(function () {
+    if (isBridge(sheetUrl) && !link.list && link.role !== 'guest' && !playing && !counting &&
+        !document.hidden && !editing && !loading) loadSheet(sheetUrl, true);
+  }, 30000);
 
   $('loadSheet').addEventListener('click', function () {
     var url = $('sheetUrl').value.trim();
     if (!url) return setStatus('Paste a Google Sheets link first.', 'err');
     loadSheet(url, false);
+  });
+  $('token').addEventListener('change', function () {
+    token = this.value.trim(); this.value = token;
+    if (token) store.set('tp.token', token); else store.del('tp.token');
+    updateEditBtn();
   });
   $('sheetUrl').addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); $('loadSheet').click(); } });
   $('refresh').addEventListener('click', function () {
@@ -828,8 +1069,8 @@ details b, #panel p b { color: var(--ui-ink); font-weight: 500; }
     track.style.transform = 'translate3d(0,' + (-pos).toFixed(2) + 'px,0)';
     $('progress').style.transform = 'scaleX(' + (max ? pos / max : 0).toFixed(4) + ')';
     var e = fmt(elapsed), r = pxPerSec ? fmt((max - pos) / pxPerSec) + ' left' : '';
-    if (e !== shown.e) $('elapsed').textContent = shown.e = e;
-    if (r !== shown.r) $('remaining').textContent = shown.r = r;
+    if (e !== shown.e) $('elapsed').textContent = $('pElapsed').textContent = shown.e = e;
+    if (r !== shown.r) $('remaining').textContent = $('pLeft').textContent = shown.r = r;
   }
 
   function frame(t) {
@@ -863,6 +1104,7 @@ details b, #panel p b { color: var(--ui-ink); font-weight: 500; }
       $('play').setAttribute('aria-label', 'Start');
       refreshAwake();
       wake();
+      if (pendingApply) setTimeout(applyPending, 0);   // an edit that arrived while rolling
     }
     sync();
   }
@@ -919,8 +1161,15 @@ details b, #panel p b { color: var(--ui-ink); font-weight: 500; }
   }
   document.addEventListener('visibilitychange', function () {
     if (document.hidden) pause();
-    else { linkWake(); refreshAwake(); }   // the browser drops the screen lock whenever the page is hidden
+    else {
+      linkWake(); refreshAwake();          // the browser drops the screen lock whenever the page is hidden
+      if (isBridge(sheetUrl) && !link.list && link.role !== 'guest' && !editing) loadSheet(sheetUrl, true);
+    }
   });
+  // A home-screen app on iOS is frozen in the background and can come back
+  // from the page cache: wake the link on every way back.
+  window.addEventListener('pageshow', function (e) { if (e.persisted) { linkWake(); refreshAwake(); } });
+  window.addEventListener('online', function () { linkWake(); });
   $('wakeNote').hidden = 'wakeLock' in navigator;
 
   /* Controls fade out a moment after the script starts rolling. */
@@ -1031,9 +1280,9 @@ details b, #panel p b { color: var(--ui-ink); font-weight: 500; }
   /* ---------- Keyboard / Bluetooth remote -------------------------------- */
   function typing(e) { return /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName) && e.target.type !== 'checkbox'; }
   document.addEventListener('keydown', function (e) {
-    if (e.key === 'Escape') { if (body.classList.contains('panel-open')) closePanel(); return; }
+    if (e.key === 'Escape') { if (editing) closeEditor(); else if (body.classList.contains('panel-open')) closePanel(); return; }
     if (typing(e) || e.metaKey || e.ctrlKey || e.altKey) return;
-    if (body.classList.contains('panel-open')) return;
+    if (body.classList.contains('panel-open') || editing) return;
     var h = stage.clientHeight, handled = true;
     switch (e.key) {
       case ' ': case 'Enter': case 'k': if (!e.repeat) toggle(); break;
@@ -1052,8 +1301,114 @@ details b, #panel p b { color: var(--ui-ink); font-weight: 500; }
   });
   // Stop Space "clicking" whichever button was touched last.
   document.addEventListener('keyup', function (e) {
-    if (e.key === ' ' && !typing(e) && !body.classList.contains('panel-open')) e.preventDefault();
+    if (e.key === ' ' && !typing(e) && !body.classList.contains('panel-open') && !editing) e.preventDefault();
   });
+
+  /* ---------- Editing a Tracker chunk ----------------------------------- */
+  // Pause, bring a chunk to the reading line, tap the pencil. The save goes
+  // straight to the Tracker; on a joined phone it then asks the iPad to reload,
+  // and the iPad keeps its place. The Tracker refuses the save if the cell was
+  // changed since it was loaded, and sends back what it says now.
+  var editing = null, toastTimer = 0;
+  function editUrl() { return link.list ? link.bridge || '' : (isBridge(sheetUrl) ? sheetUrl : ''); }
+  function canEdit() { return !!(cur && cur.chunks && token && editUrl()); }
+  function updateEditBtn() { $('editBtn').hidden = !canEdit(); }
+  function wordsIn(t) { return (t.replace(new RegExp(CUE_RE.source, 'g'), ' ').match(/\S+/g) || []).length; }
+  function tidy(t) { return t.replace(/\r\n?/g, '\n').replace(/[ \t]+\n/g, '\n').trim(); }
+  function edStatus(msg, cls) { var el = $('edStatus'); el.textContent = msg || ''; el.className = cls || ''; }
+  function edBusy(on) { $('edSave').disabled = $('edOverwrite').disabled = on; }
+  function toast(msg) {
+    var el = $('toast'); el.textContent = msg; el.hidden = false;
+    clearTimeout(toastTimer); toastTimer = setTimeout(function () { el.hidden = true; }, 2200);
+  }
+
+  function openEditor() {
+    if (!canEdit() || playing || counting) return;
+    var i = chunkAtLine();
+    if (i < 0 || !cur.chunks[i]) return;
+    var ch = cur.chunks[i];
+    editing = { script: cur, idx: i, row: ch.row, chunk: ch.chunk, base: ch.text };
+    $('edTitle').textContent = ch.name || 'Chunk ' + ch.chunk;
+    $('edMeta').textContent = cur.id + ' v' + cur.version + ' · chunk ' + ch.chunk + ' · row ' + ch.row;
+    $('edText').value = ch.text;
+    $('edConflict').hidden = true; edStatus(''); edBusy(false);
+    $('edWords').textContent = wordsIn(ch.text) + ' words';
+    $('editor').hidden = false;
+    $('editor').scrollTop = 0;
+  }
+  function closeEditor(force) {
+    if (!editing) return;
+    if (!force && tidy($('edText').value) !== tidy(editing.base) && !confirm('Discard your changes to this chunk?')) return;
+    editing = null;
+    $('editor').hidden = true;
+    if (document.activeElement) document.activeElement.blur();
+  }
+  function saveEdit(over) {
+    var e = editing;
+    if (!e) return;
+    var newText = tidy($('edText').value);
+    if (!newText) return edStatus("A chunk can't be empty. To drop it, clear it in the Sheet.", 'err');
+    if (over == null && newText === tidy(e.base)) return closeEditor(true);
+    edBusy(true); edStatus('Saving…');
+    bridgeFetch(editUrl(), { body: {
+      token: token, row: e.row, id: e.script.id, version: e.script.version, chunk: e.chunk,
+      oldText: over != null ? over : e.base, newText: newText
+    } }).then(function (j) {
+      if (editing !== e) return;
+      // A save that went through but whose reply was lost comes back as a
+      // "conflict" with our own words in the cell: that is a success.
+      if (j && (j.ok || (j.error === 'conflict' && tidy(j.current || '') === newText))) {
+        applyEdit(e, newText);
+        closeEditor(true);
+        toast('Saved to the Tracker');
+        cmd('refresh');                    // a joined phone: the iPad reloads from the Tracker
+        return;
+      }
+      var err = j && j.error;
+      if (err === 'conflict') {
+        e.current = String(j.current || '');
+        $('edCurrent').textContent = e.current;
+        $('edConflict').hidden = false;
+        edStatus('Not saved: the Sheet changed.', 'err');
+      } else edStatus('Not saved. ' + ({
+        moved: 'The rows in the Tracker have moved since this was loaded. Close this, reload the scripts, and try again.',
+        token: "The Tracker didn't accept the edit token. Check it in Settings.",
+        busy: 'The Tracker is busy. Try again in a moment.',
+        empty: "A chunk can't be empty.",
+        'too-long': 'That is too long for one chunk.'
+      }[err] || 'The Tracker answered with an error.'), 'err');
+    }, function (err) {
+      if (editing === e) edStatus('Not saved. ' + err.message, 'err');
+    }).then(function () { if (editing === e) edBusy(false); });
+  }
+  // Puts the saved words into this device's copy, at the same place on screen.
+  function applyEdit(e, newText) {
+    // The list may have been reloaded meanwhile: find the script as shown now.
+    var s = scripts.filter(function (x) { return x.chunks && x.title === e.script.title; })[0] || e.script;
+    var ch = s.chunks[e.idx];
+    if (!ch || ch.row !== e.row) return;
+    var a = s === cur && max ? anchorAt() : null;
+    ch.text = newText;
+    s.text = joinChunks(s.chunks);
+    if (!link.list && sheetScripts) { sheetScripts.at = Date.now(); store.set('tp.scripts', sheetScripts); describeSheet(); }
+    if (s === cur) { if (a) rerender(a); else { renderScript(); layout(); } }
+    if (link.role === 'host') { listVer++; sendList(); sync(); }
+  }
+
+  $('editBtn').addEventListener('click', function () { this.blur(); openEditor(); });
+  $('edCancel').addEventListener('click', function () { closeEditor(); });
+  $('edSave').addEventListener('click', function () { saveEdit(); });
+  $('edOverwrite').addEventListener('click', function () { if (editing) saveEdit(editing.current || ''); });
+  $('edTakeTheirs').addEventListener('click', function () {
+    if (!editing) return;
+    editing.base = editing.current || '';
+    $('edText').value = editing.base;
+    applyEdit(editing, editing.base);      // show the Sheet's words here too
+    cmd('refresh');                        // and on the iPad
+    $('edConflict').hidden = true; edStatus('');
+    $('edWords').textContent = wordsIn(editing.base) + ' words';
+  });
+  $('edText').addEventListener('input', function () { $('edWords').textContent = wordsIn(this.value) + ' words'; });
 
   /* ---------- Two devices ------------------------------------------------ */
   // One device shares ("host"), the other joins with its 6-digit code ("guest").
@@ -1070,8 +1425,8 @@ details b, #panel p b { color: var(--ui-ink); font-weight: 500; }
   var PEER_SRI = 'sha384-nlUQ8ZqCbvStErob+biJNzSgltf6urV3VGqhfIfzhmg9RXmpeRm76ELw0pYnKlTR';
   var PEER_PREFIX = 'adtp1-';
 
-  var link = { role: null, code: '', peer: null, conns: [], conn: null, list: null, v: -1, hostHasSheet: false, retry: 0, tries: 0, note: '' };
-  var L = store.get('tp.link', {});          // { host: bool, hostCode, join }
+  var link = { role: null, code: '', peer: null, conns: [], conn: null, list: null, v: -1, hostHasSheet: false, bridge: '', retry: 0, tries: 0, note: '' };
+  var L = store.get('tp.link', {});          // { host: bool, hostCode, join, guest: bool }
   var listVer = 0, holdPos = 0, holdSpeed = 0;
 
   function remote() { return link.role === 'guest' && !!link.conn && link.conn.open; }
@@ -1085,7 +1440,12 @@ details b, #panel p b { color: var(--ui-ink); font-weight: 500; }
   function syncSoon() { if (!syncTimer) syncTimer = setTimeout(function () { syncTimer = 0; sync(); }, 60); }
   function sendList(conn) {
     if (link.role !== 'host') return;
-    var m = { t: 'l', v: listVer, list: scripts, n: curIndex, r: !!sheetUrl };
+    // Tracker scripts travel as their chunks (with rows), so a joined phone can
+    // edit them; u is the Tracker link (never the token: each device types its own).
+    var list = scripts.map(function (s) {
+      return s.chunks ? { title: s.title, id: s.id, version: s.version, chunks: s.chunks } : { title: s.title, text: s.text };
+    });
+    var m = { t: 'l', v: listVer, list: list, n: curIndex, r: !!sheetUrl, u: isBridge(sheetUrl) ? sheetUrl : '' };
     if (conn) send(conn, m); else link.conns.forEach(function (c) { send(c, m); });
   }
   setInterval(sync, 500);
@@ -1115,10 +1475,10 @@ details b, #panel p b { color: var(--ui-ink); font-weight: 500; }
   function onHostMsg(m) {
     if (!m) return;
     if (m.t === 'l' && Array.isArray(m.list)) {
-      var list = m.list.filter(function (s) { return s && typeof s.text === 'string'; })
-                       .map(function (s) { return { title: String(s.title || 'Script'), text: s.text }; });
+      var list = m.list.map(toScript).filter(Boolean);
       if (!list.length) return;
       link.list = list; link.hostHasSheet = !!m.r;
+      link.bridge = typeof m.u === 'string' && isBridge(m.u) ? m.u : '';
       buildList(list[m.n] ? list[m.n].title : null);
       link.v = m.v;
     } else if (m.t === 's' && m.v === link.v) applyState(m);
@@ -1257,7 +1617,7 @@ details b, #panel p b { color: var(--ui-ink); font-weight: 500; }
   function guestStart(code) {
     linkStop(true);
     link.role = 'guest'; link.code = code;
-    L.host = false; L.join = code; store.set('tp.link', L);
+    L.host = false; L.join = code; L.guest = true; store.set('tp.link', L);
     updateLinkUI();
     openPeer();
   }
@@ -1265,7 +1625,7 @@ details b, #panel p b { color: var(--ui-ink); font-weight: 500; }
     clearTimeout(link.retry);
     var wasGuest = link.role === 'guest' && link.list;
     if (link.peer) { try { link.peer.destroy(); } catch (e) {} }
-    link.role = null; link.peer = null; link.conns = []; link.conn = null; link.list = null; link.v = -1; link.tries = 0;
+    link.role = null; link.peer = null; link.conns = []; link.conn = null; link.list = null; link.v = -1; link.tries = 0; link.bridge = '';
     if (!keepNote) link.note = '';
     body.classList.remove('remote');
     if (wasGuest) { pause(); cdEl.hidden = true; buildList(); }   // back to this device's own scripts
@@ -1296,6 +1656,16 @@ details b, #panel p b { color: var(--ui-ink); font-weight: 500; }
     btn.classList.toggle('on', on); btn.classList.toggle('wait', !!link.role && !on);
     btn.setAttribute('aria-label', on ? 'Linked to another device' : 'Waiting to link to another device');
     refreshAwake();
+    updatePad();
+    updateEditBtn();
+  }
+
+  // The big control pad: a phone held upright that is driving another device.
+  function updatePad() {
+    var pad = remote() && innerWidth < 600 && innerHeight > innerWidth;
+    if (pad === root.classList.contains('pad')) return;
+    root.classList.toggle('pad', pad);
+    layout();
   }
 
   $('oHost').addEventListener('change', function () {
@@ -1313,7 +1683,7 @@ details b, #panel p b { color: var(--ui-ink); font-weight: 500; }
     $('joinCode').blur();
     guestStart(code);
   });
-  $('leaveBtn').addEventListener('click', function () { linkStop(); });
+  $('leaveBtn').addEventListener('click', function () { L.guest = false; store.set('tp.link', L); linkStop(); });
   $('linkBtn').addEventListener('click', function () {
     openPanel();
     $('linkSec').scrollIntoView({ block: 'start' });
@@ -1323,18 +1693,30 @@ details b, #panel p b { color: var(--ui-ink); font-weight: 500; }
   /* ---------- Go --------------------------------------------------------- */
   applyLook();
   $('sheetUrl').value = sheetUrl;
+  $('token').value = token;
   if (pasted) $('paste').value = pasted.text;
   buildList();
   describeSheet();
   if (L.join) $('joinCode').value = showCode(L.join);
   updateLinkUI();
   if (L.host) hostStart();     // sharing was left on: pick up where it left off, same code
+  else if (L.guest && L.join) guestStart(L.join);   // was joined: join again (the phone app reopening)
+  // The installed app opens at ?view=remote. With nothing set up yet, start at "Join with a code".
+  else if (/[?&]view=remote\b/.test(location.search) && !sheetUrl) {
+    openPanel();
+    $('linkSec').scrollIntoView({ block: 'start' });
+  }
 
   // Rotation, text size, width, web-font swap: anything that reflows the script.
   if (window.ResizeObserver) new ResizeObserver(layout).observe(textEl);
-  window.addEventListener('resize', function () { applyLook(); layout(); });
+  window.addEventListener('resize', function () { applyLook(); updatePad(); layout(); });
 
   if (sheetUrl) loadSheet(sheetUrl, true);   // refresh quietly; the saved copy is already on screen
+
+  // Offline copy of this page for the home-screen app (see prompter-sw.js).
+  if ('serviceWorker' in navigator && window.isSecureContext) {
+    navigator.serviceWorker.register('/prompter-sw.js', { scope: '/teleprompter' }).catch(function () {});
+  }
 })();
 </script>
 </body>
