@@ -277,5 +277,12 @@ pairing two tabs at iPhone (402×874) and iPad (1180×820) sizes, phone-driven
 seek and speed, a phone edit landing in the stand-in and on the "iPad" at
 the same place, a conflicting save refused with nothing written, a mid-roll
 update held until pause, and the page opening offline from the service worker.
+The Apps Script was deployed by Alfa the same day; a wrong-token GET and
+`text/plain` POST from the page's origin were both read back, confirming
+cross-origin access. Deployed (`987b33a`) and checked live: every
+`/teleprompter` variant still gets the PIN screen and a wrong PIN is refused,
+the manifest / worker / icons load without it with the right types and
+headers, and `/.claude/*` is still absent. The iPhone home-screen install,
+unlock and a real edit were left to be done on the phone with the real PIN.
 The camera-overlay mode is designed, not built:
 `~/Projects/_Operations/_knowledge-base/20 Content/Playbook/Teleprompter camera overlay.md`.
