@@ -454,7 +454,7 @@ html.pad #countdown { font-size: min(36vw, 24dvh); }
 html.pad #progress { bottom: var(--padH); height: 4px; }
 html.pad #hud { display: none; }
 html.pad #fs { display: none; }               /* iPhone Safari has no full screen for pages anyway */
-html.pad .top.left { right: calc(env(safe-area-inset-right) + 124px); }
+html.pad .top.left { right: calc(env(safe-area-inset-right) + 170px); }   /* camera + link + settings */
 html.pad .top.left #pick { flex: 1; min-width: 0; max-width: none; }
 html.pad #bar {
   left: 0; right: 0; bottom: 0; transform: none;
@@ -1660,7 +1660,15 @@ html.pad .stepper.small output { font-size: 16px; }
     $('take').hidden = true;
   });
 
-  $('camBtn').addEventListener('click', function () { this.blur(); if (cam.on) exitCam(); else enterCam(); });
+  $('camBtn').addEventListener('click', function () {
+    this.blur();
+    if (cam.on) return exitCam();
+    if (link.role === 'guest') {                     // the phone is the iPad's remote: leave the link first
+      if (!confirm('Stop controlling the other device and open the camera?')) return;
+      L.guest = false; store.set('tp.link', L); linkStop();
+    }
+    enterCam();
+  });
   $('recBtn').addEventListener('click', function () { this.blur(); toggleRec(); });
   $('camRetry').addEventListener('click', function () { camRelease(); camOpen(); });
 
@@ -1908,7 +1916,7 @@ html.pad .stepper.small output { font-size: 16px; }
     $('leaveBtn').hidden = !guest;
     var btn = $('linkBtn');
     btn.hidden = !link.role;
-    $('camBtn').hidden = !camSupported() || guest;
+    $('camBtn').hidden = !camSupported();
     btn.classList.toggle('on', on); btn.classList.toggle('wait', !!link.role && !on);
     btn.setAttribute('aria-label', on ? 'Linked to another device' : 'Waiting to link to another device');
     refreshAwake();

@@ -116,8 +116,8 @@ replaces it). Things to keep true when changing it:
   with a big control pad below: time, back / play / forward, speed, text
   size. A guest that was joined rejoins its last code on every open
   (`tp.link.guest`); Disconnect clears that.
-- **Camera view ("cam").** The camera button (top right; hidden on a joined
-  remote) or `?view=camera` puts the front camera under the script.
+- **Camera view ("cam").** The camera button (top right; on a joined remote
+  it first asks to leave the link) or `?view=camera` puts the front camera under the script.
   `html.cam` makes `#stage` transparent and masks it to a band about three
   lines tall, just below the top buttons, near the lens. Mirror/flip/invert
   are off there, and the view keeps its own text size (`S.camSize`). Record
@@ -313,5 +313,13 @@ in Chromium at 440×956 and 956×440 with a fake camera (canvas plus tone):
 
 Not yet tried on a real iPhone: the permission prompt in the home-screen app,
 the real camera, saving through the share sheet, and a call during a take.
-The camera-overlay mode is designed, not built:
+Design note and as-built record:
 `~/Projects/_Operations/_knowledge-base/20 Content/Playbook/Teleprompter camera overlay.md`.
+
+**Nov 16 (evening) — camera button on the phone remote.** Alfa couldn't find
+the camera button: the phone auto-rejoins the iPad as its remote, and the
+button was hidden there. It now shows in that mode too (the pad's top-left
+chrome stops 170 px from the right to make room). Tapping it asks to stop
+controlling the other device, leaves the link (no auto-rejoin next launch) and
+opens the camera. Checked at 375×812 in Chromium: no overlap with the script
+picker; confirm → link left, pad off, camera view on.
