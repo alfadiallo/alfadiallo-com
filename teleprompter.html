@@ -386,13 +386,26 @@ body.playing #editBtn { display: none; }      /* edits only while paused */
 .ed-sh b small { margin-left: 6px; font-weight: 400; color: var(--ui-soft); }
 .ed-w { flex: none; font-size: 13.5px; color: var(--ui-soft); font-variant-numeric: tabular-nums; }
 .ed-w.over { color: var(--warn); }
+/* Under each section: the animation's frame (left) and the notes (right), half and half. */
+.ed-tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 2px; }
+.ed-tile { min-width: 0; display: flex; flex-direction: column; gap: 6px; padding: 8px; border: 1px solid var(--ui-line); border-radius: 14px; background: var(--ui-2); }
+.ed-frame { position: relative; aspect-ratio: 1; border-radius: 9px; overflow: hidden; background: #fff; }
+.ed-frame iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+.ed-frame.none { display: grid; place-items: center; background: #0e1014; color: var(--ui-soft); font-size: 13.5px; text-align: center; padding: 10px; }
+.ed-lab { font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--ui-soft); }
+.ed-sec textarea.ed-nt { flex: 1; min-height: 6em; padding: 8px 10px; border-radius: 10px; font-family: inherit; font-size: 15px; line-height: 1.4; }
+.ed-sec textarea.ed-nt.changed { border-color: var(--accent); }
+.ed-stamp { font-size: 12px; color: var(--ui-soft); }
+.ed-notes .ed-conf { padding: 8px 10px; }
+.ed-notes .ed-conf .actions { flex-wrap: wrap; }
+@media (max-width: 520px) { .ed-tiles { grid-template-columns: 1fr; } }
 .ed-scr { margin: 0; padding-left: 10px; border-left: 2px solid var(--cue); font-size: 13.5px; line-height: 1.4; color: var(--ui-soft); white-space: pre-wrap; }
 .ed-sec textarea {
   width: 100%; min-height: 4.8em; padding: 12px 14px; overflow: hidden;
   border: 1px solid var(--ui-line); border-radius: 14px; background: #0e1014;
   font-family: var(--font-read); font-size: 19px; line-height: 1.5; resize: none;
 }
-.ed-sec.changed textarea { border-color: var(--accent); }
+.ed-sec.changed > textarea { border-color: var(--accent); }
 .ed-sec.saved .ed-sh b::after { content: ' ✓ saved'; color: var(--accent); font-weight: 600; font-size: 13px; }
 .ed-conf { padding: 12px 14px; border: 1px solid var(--warn); border-radius: 14px; }
 .ed-conf p { margin: 0 0 8px; font-size: 14.5px; color: var(--ui-soft); }
@@ -912,7 +925,8 @@ html.pad .stepper.small output { font-size: 16px; }
     var chunks = s.chunks.filter(function (c) { return c && typeof c.text === 'string' && c.text.trim() && +c.row >= 2; })
       .map(function (c) {
         return { row: +c.row, chunk: c.chunk, name: String(c.name || ''), text: c.text.replace(/\r\n?/g, '\n'),
-                 budget: +c.budget > 0 ? +c.budget : null, screen: typeof c.screen === 'string' ? c.screen.trim() : '' };
+                 budget: +c.budget > 0 ? +c.budget : null, screen: typeof c.screen === 'string' ? c.screen.trim() : '',
+                 notes: typeof c.notes === 'string' ? c.notes : null, edited: typeof c.edited === 'string' ? c.edited : '' };
       });
     if (!chunks.length) return null;
     return { title: String(s.title || s.id), id: String(s.id), version: s.version, chunks: chunks, text: joinChunks(chunks) };
@@ -1454,159 +1468,238 @@ html.pad .stepper.small output { font-size: 16px; }
     setup: "The Tracker's Prompter tab isn't set up yet."
   };
 
-  // The whole script, one box per chunk (one Sheet row each), opened at the
-  // chunk on the reading line. Save sends only the chunks that changed.
+  // The square players (the right-hand animation of each video), PIN-gated on
+  // this site under /teleprompter-media/ (tools/prompter-media.mjs). index.json
+  // says which scripts have one and which step each chunk opens on.
+  var mediaIndex = null, mediaAsked = false;
+  function loadMediaIndex() {
+    if (mediaAsked) return Promise.resolve(mediaIndex);
+    mediaAsked = true;
+    return fetch('/teleprompter-media/index.json', { credentials: 'same-origin', cache: 'no-cache' })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (j) { mediaIndex = j; return j; }, function () { mediaAsked = false; return null; });
+  }
+  var frameObs = null;
+  function frameFor(id, chunk) {
+    var m = mediaIndex && mediaIndex[id];
+    if (!m || !m.player || !m.steps || !(String(chunk) in m.steps)) return '';
+    return '/teleprompter-media/' + m.player + '?step=' + m.steps[String(chunk)];
+  }
+
+  // One editable field (the spoken words, or the notes) with its own conflict box.
+  function edField(kind, text, x, e) {
+    var f = { kind: kind, base: text, current: null };
+    f.conf = el('div', 'ed-conf'); f.conf.hidden = true;
+    f.conf.appendChild(el('p', '', kind === 'notes'
+      ? 'These notes changed in the Sheet after they were loaded, so they were not saved. The Sheet now says:'
+      : 'Changed in the Sheet after it was loaded, so this section was not saved. The Sheet now says:'));
+    f.curP = el('p', 'ed-cur'); f.conf.appendChild(f.curP);
+    var acts = el('div', 'actions');
+    f.over = el('button', 'btn', 'Save mine over it'); f.over.type = 'button';
+    var theirs = el('button', 'btn ghost', "Use the Sheet's " + (kind === 'notes' ? 'notes' : 'text')); theirs.type = 'button';
+    acts.appendChild(f.over); acts.appendChild(theirs); f.conf.appendChild(acts);
+    f.ta = el('textarea', kind === 'notes' ? 'ed-nt' : '');
+    f.ta.spellcheck = true; f.ta.setAttribute('autocapitalize', 'sentences');
+    f.ta.value = text;
+    f.ta.addEventListener('input', function () { grow(f.ta); x.sec.classList.remove('saved'); edCount(x); edMeta(); });
+    f.over.addEventListener('click', function () { edSave([f], true); });
+    theirs.addEventListener('click', function () {
+      f.base = f.current || ''; f.ta.value = f.base; grow(f.ta);
+      f.conf.hidden = true; f.current = null;
+      applyEdit({ script: e.script, idx: x.idx, row: x.row }, f.base, kind);   // show the Sheet's words here too
+      cmd('refresh');                                                        // and on the iPad
+      edCount(x); edMeta(); edStatus('');
+    });
+    return f;
+  }
+
+  // The whole script, one block per chunk (one Sheet row each), opened at the
+  // chunk on the reading line: the words, then two tiles side by side, the
+  // animation's frame for that chunk (tap it to step through) and the notes.
+  // Save sends only what changed.
   function openEditor() {
     if (!canEdit() || playing || counting) return;
     var at = Math.max(0, chunkAtLine());
     var e = editing = { script: cur, secs: [], busy: false };
     $('edTitle').textContent = cur.title;
     $('edList').textContent = '';
+    if (frameObs) frameObs.disconnect();
+    frameObs = 'IntersectionObserver' in window ? new IntersectionObserver(function (es) {
+      es.forEach(function (en) {
+        if (!en.isIntersecting) return;
+        var fr = en.target; frameObs.unobserve(fr);
+        if (fr.dataset.src) { fr.src = fr.dataset.src; delete fr.dataset.src; }
+      });
+    }, { root: $('editor'), rootMargin: '300px 0px' }) : null;
+
     cur.chunks.forEach(function (ch, i) {
-      var sec = el('section', 'ed-sec');
+      var x = { idx: i, row: ch.row, chunk: ch.chunk, budget: ch.budget };
+      var sec = x.sec = el('section', 'ed-sec');
       var head = el('div', 'ed-sh');
       var name = el('b', '', ch.name || 'Section ' + ch.chunk);
       name.appendChild(el('small', '', 'chunk ' + ch.chunk));
-      var w = el('span', 'ed-w');
-      head.appendChild(name); head.appendChild(w);
+      x.w = el('span', 'ed-w');
+      head.appendChild(name); head.appendChild(x.w);
       sec.appendChild(head);
-      if (ch.screen) sec.appendChild(el('p', 'ed-scr', ch.screen));
-      var conf = el('div', 'ed-conf'); conf.hidden = true;
-      conf.appendChild(el('p', '', 'Changed in the Sheet after it was loaded, so this section was not saved. The Sheet now says:'));
-      var curP = el('p', 'ed-cur'); conf.appendChild(curP);
-      var acts = el('div', 'actions');
-      var over = el('button', 'btn', 'Save mine over it'); over.type = 'button';
-      var theirs = el('button', 'btn ghost', "Use the Sheet's text"); theirs.type = 'button';
-      acts.appendChild(over); acts.appendChild(theirs); conf.appendChild(acts);
-      sec.appendChild(conf);
-      var ta = el('textarea');
-      ta.spellcheck = true; ta.setAttribute('autocapitalize', 'sentences');
-      ta.setAttribute('aria-label', (ch.name || 'Section ' + ch.chunk) + ', spoken text');
-      ta.value = ch.text;
-      sec.appendChild(ta);
+
+      x.text = edField('text', ch.text, x, e);
+      x.text.ta.setAttribute('aria-label', (ch.name || 'Section ' + ch.chunk) + ', spoken text');
+      sec.appendChild(x.text.conf); sec.appendChild(x.text.ta);
+
+      var tiles = el('div', 'ed-tiles');
+      var media = el('div', 'ed-tile ed-media');
+      var frame = el('div', 'ed-frame');
+      var src = frameFor(e.script.id, ch.chunk);
+      if (src) {
+        var fr = el('iframe');
+        fr.title = 'Animation for ' + (ch.name || 'chunk ' + ch.chunk);
+        fr.setAttribute('loading', 'lazy');
+        if (frameObs) { fr.dataset.src = src; frameObs.observe(fr); } else fr.src = src;
+        frame.appendChild(fr);
+      } else {
+        frame.classList.add('none');
+        frame.appendChild(el('span', '', mediaIndex ? 'No animation for ' + e.script.id + ' yet' : 'Animations not available'));
+      }
+      media.appendChild(frame);
+      if (ch.screen) media.appendChild(el('p', 'ed-scr', ch.screen));
+      tiles.appendChild(media);
+
+      var notes = el('div', 'ed-tile ed-notes');
+      notes.appendChild(el('span', 'ed-lab', 'Notes'));
+      if (ch.notes != null) {
+        x.notes = edField('notes', ch.notes, x, e);
+        x.notes.ta.setAttribute('aria-label', (ch.name || 'Section ' + ch.chunk) + ', notes');
+        x.notes.ta.placeholder = 'No notes';
+        notes.appendChild(x.notes.conf); notes.appendChild(x.notes.ta);
+        if (ch.edited) notes.appendChild(el('small', 'ed-stamp', ch.edited));
+      } else {
+        notes.appendChild(el('p', 'ed-scr', 'Notes show here once the Tracker\'s Apps Script is updated to version 3.'));
+      }
+      tiles.appendChild(notes);
+      sec.appendChild(tiles);
+
       $('edList').appendChild(sec);
-      var x = { idx: i, row: ch.row, chunk: ch.chunk, budget: ch.budget, base: ch.text, current: null,
-                sec: sec, ta: ta, w: w, conf: conf, curP: curP, over: over };
       e.secs.push(x);
-      ta.addEventListener('input', function () { grow(ta); sec.classList.remove('saved'); edCount(x); edMeta(); });
-      over.addEventListener('click', function () { edSave([x], true); });
-      theirs.addEventListener('click', function () {
-        x.base = x.current || ''; ta.value = x.base; grow(ta);
-        conf.hidden = true; x.current = null;
-        applyEdit({ script: e.script, idx: x.idx, row: x.row }, x.base);   // show the Sheet's words here too
-        cmd('refresh');                                                    // and on the iPad
-        edCount(x); edMeta(); edStatus('');
-      });
       edCount(x);
     });
     edStatus(''); edBusy(false); edMeta();
     $('editor').hidden = false;
-    e.secs.forEach(function (x) { grow(x.ta); });
+    edFields(e).forEach(function (f) { grow(f.ta); });
     var target = e.secs[at] && e.secs[at].sec;
     $('editor').scrollTop = target && at > 0 ? target.offsetTop - 70 : 0;
   }
+  function edFields(e, onlyChanged) {
+    var out = [];
+    e.secs.forEach(function (x) { [x.text, x.notes].forEach(function (f) { if (f && (!onlyChanged || isChanged(f))) out.push(f); }); });
+    return out;
+  }
+  function fieldSec(e, f) { return e.secs.filter(function (x) { return x.text === f || x.notes === f; })[0]; }
   function grow(ta) { ta.style.height = 'auto'; ta.style.height = ta.scrollHeight + 2 + 'px'; }
-  function isChanged(x) { return tidy(x.ta.value) !== tidy(x.base); }
+  function isChanged(f) { return tidy(f.ta.value) !== tidy(f.base); }
+  function secChanged(x) { return isChanged(x.text) || !!(x.notes && isChanged(x.notes)); }
   function edCount(x) {
-    var n = wordsIn(x.ta.value);
+    var n = wordsIn(x.text.ta.value);
     x.w.textContent = n + (x.budget ? ' / ' + x.budget : '') + ' words';
     x.w.classList.toggle('over', !!x.budget && n > x.budget);
-    x.sec.classList.toggle('changed', isChanged(x));
+    x.sec.classList.toggle('changed', isChanged(x.text));
+    if (x.notes) x.notes.ta.classList.toggle('changed', isChanged(x.notes));
   }
   function edMeta() {
     if (!editing) return;
     var total = 0, budget = 0, changed = 0;
-    editing.secs.forEach(function (x) { total += wordsIn(x.ta.value); budget += x.budget || 0; if (isChanged(x)) changed++; });
+    editing.secs.forEach(function (x) { total += wordsIn(x.text.ta.value); budget += x.budget || 0; if (secChanged(x)) changed++; });
     $('edMeta').textContent = total + (budget ? ' / ' + budget : '') + ' words' +
       (changed ? ' · ' + changed + (changed === 1 ? ' section' : ' sections') + ' changed' : '');
   }
   function edBusy(on) {
     if (editing) editing.busy = on;
     $('edSave').disabled = on;
-    if (editing) editing.secs.forEach(function (x) { x.over.disabled = on; });
+    if (editing) edFields(editing).forEach(function (f) { f.over.disabled = on; });
   }
   function closeEditor(force) {
     if (!editing) return;
-    var n = editing.secs.filter(isChanged).length;
+    var n = editing.secs.filter(secChanged).length;
     if (!force && n && !confirm('Discard your changes to ' + (n === 1 ? 'this section?' : n + ' sections?'))) return;
     editing = null;
+    if (frameObs) { frameObs.disconnect(); frameObs = null; }
     $('editor').hidden = true;
-    $('edList').textContent = '';
+    $('edList').textContent = '';            // also stops the animations
     if (document.activeElement) document.activeElement.blur();
   }
-  // Saves the given sections (or every changed one) one after another. A section
+  // Saves the given fields (or every changed one) one after another. A field
   // the Sheet changed meanwhile shows the Sheet's words and waits for a choice;
   // the others still save. Closes when nothing is left unsaved.
   function edSave(only, over) {
     var e = editing;
     if (!e || e.busy) return;
-    var todo = (only || e.secs).filter(function (x) { return over || isChanged(x); });
+    var todo = (only || edFields(e)).filter(function (f) { return over || isChanged(f); });
     if (!todo.length) return closeEditor(true);
-    var empty = todo.filter(function (x) { return !tidy(x.ta.value); })[0];
+    var empty = todo.filter(function (f) { return f.kind === 'text' && !tidy(f.ta.value); })[0];
     if (empty) {
-      e.secs.forEach(function (x) { x.sec.scrollIntoView && x === empty && x.sec.scrollIntoView({ block: 'start' }); });
+      fieldSec(e, empty).sec.scrollIntoView({ block: 'start' });
       return edStatus("A section can't be empty. To drop one, clear it in the Sheet.", 'err');
     }
     edBusy(true); edStatus('Saving…');
-    var saved = 0, failed = [], firstErr = '';
-    todo.reduce(function (p, x) {
+    var saved = 0, firstErr = '';
+    todo.reduce(function (p, f) {
       return p.then(function () {
         if (editing !== e) return;
-        var newText = tidy(x.ta.value);
-        return bridgeFetch(editUrl(), { body: {
-          token: token, row: x.row, id: e.script.id, version: e.script.version, chunk: x.chunk,
-          oldText: over ? (x.current || '') : x.base, newText: newText
-        } }).then(function (j) {
+        var x = fieldSec(e, f), newText = tidy(f.ta.value), old = over ? (f.current || '') : f.base;
+        var body = { token: token, row: x.row, id: e.script.id, version: e.script.version, chunk: x.chunk };
+        if (f.kind === 'notes') { body.field = 'notes'; body.oldNotes = tidy(old); body.newNotes = newText; }
+        else { body.oldText = old; body.newText = newText; }
+        return bridgeFetch(editUrl(), { body: body }).then(function (j) {
           // A save that went through but whose reply was lost comes back as a
           // "conflict" with our own words in the cell: that is a success.
           if (j && (j.ok || (j.error === 'conflict' && tidy(j.current || '') === newText))) {
-            x.base = newText; x.current = null; x.conf.hidden = true;
+            f.base = newText; f.current = null; f.conf.hidden = true;
             x.sec.classList.add('saved');
-            applyEdit({ script: e.script, idx: x.idx, row: x.row }, newText);
+            applyEdit({ script: e.script, idx: x.idx, row: x.row }, newText, f.kind);
             saved++;
           } else if (j && j.error === 'conflict') {
-            x.current = String(j.current || '');
-            x.curP.textContent = x.current; x.conf.hidden = false;
-            failed.push(x);
+            f.current = String(j.current || '');
+            f.curP.textContent = f.current || '(empty)'; f.conf.hidden = false;
           } else {
-            failed.push(x);
             firstErr = firstErr || ED_ERR[j && j.error] || 'The Tracker answered with an error.';
           }
           edCount(x);
-        }, function (err) { failed.push(x); firstErr = firstErr || err.message; });
+        }, function (err) { firstErr = firstErr || err.message; });
       });
     }, Promise.resolve()).then(function () {
       if (editing !== e) return;
       edBusy(false); edMeta();
       if (saved) cmd('refresh');                 // a joined phone: the iPad reloads from the Tracker
       // Close only when nothing in the whole script is left unsaved.
-      var left = e.secs.filter(function (x) { return isChanged(x) || x.current != null; });
+      var left = edFields(e).filter(function (f) { return isChanged(f) || f.current != null; });
       if (!left.length) {
         closeEditor(true);
-        toast(saved === 1 ? 'Saved to the Tracker' : saved + ' sections saved to the Tracker');
+        toast(saved === 1 ? 'Saved to the Tracker' : saved + ' changes saved to the Tracker');
         return;
       }
-      var conflicts = left.filter(function (x) { return x.current != null; }).length;
+      var conflicts = left.filter(function (f) { return f.current != null; }).length;
       edStatus((saved ? saved + ' saved. ' : '') + left.length + ' not saved' +
         (conflicts ? ': changed in the Sheet (marked below).' : '.') + (firstErr ? ' ' + firstErr : ''), 'err');
-      left[0].sec.scrollIntoView({ block: 'start' });
+      fieldSec(e, left[0]).sec.scrollIntoView({ block: 'start' });
     });
   }
-  // Puts the saved words into this device's copy, at the same place on screen.
-  function applyEdit(e, newText) {
+  // Puts saved words (or notes) into this device's copy, at the same place on screen.
+  function applyEdit(e, newText, kind) {
     // The list may have been reloaded meanwhile: find the script as shown now.
     var s = scripts.filter(function (x) { return x.chunks && x.title === e.script.title; })[0] || e.script;
     var ch = s.chunks[e.idx];
     if (!ch || ch.row !== e.row) return;
-    var a = s === cur && max ? anchorAt() : null;
-    ch.text = newText;
-    s.text = joinChunks(s.chunks);
+    if (kind === 'notes') ch.notes = newText;
+    else {
+      var a = s === cur && max ? anchorAt() : null;
+      ch.text = newText;
+      s.text = joinChunks(s.chunks);
+      if (s === cur) { if (a) rerender(a); else { renderScript(); layout(); } }
+    }
     if (!link.list && sheetScripts) { sheetScripts.at = Date.now(); store.set('tp.scripts', sheetScripts); describeSheet(); }
-    if (s === cur) { if (a) rerender(a); else { renderScript(); layout(); } }
     if (link.role === 'host') { listVer++; sendList(); sync(); }
   }
 
-  $('editBtn').addEventListener('click', function () { this.blur(); openEditor(); });
+  $('editBtn').addEventListener('click', function () { this.blur(); loadMediaIndex().then(openEditor); });
   $('edCancel').addEventListener('click', function () { closeEditor(); });
   $('edSave').addEventListener('click', function () { edSave(); });
 

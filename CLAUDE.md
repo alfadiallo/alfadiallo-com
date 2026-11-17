@@ -101,7 +101,27 @@ replaces it). Things to keep true when changing it:
   save names the row, ID, version, chunk and old text; the Sheet refuses it if
   any changed, and that chunk shows the Sheet's text with "Save mine over it" /
   "Use the Sheet's text" while the others still save. The editor closes only
-  when nothing is left unsaved. After a save a joined phone sends `refresh`; the host reloads and keeps
+  when nothing is left unsaved. Under each chunk's box sit two tiles, half and
+  half (stacked below 520 px): **left, the square player's frame for that
+  chunk** (an `<iframe>` of `/teleprompter-media/<ID>/player?step=N`, loaded as
+  it scrolls into view; tap it to step through the chunk) with the Screen
+  column under it; **right, the Notes column (M)**, editable and saved on its
+  own (`field: 'notes'` POST, bridge v3; the "edited on prompter" line is shown
+  under it, never edited).
+- **`teleprompter-media/` (the players, PIN-gated, NOT in git).** Made by
+  `node tools/prompter-media.mjs` from the UH vault's
+  `Modules/Animations/<player>/` (index.html → `player.html`, plus `media/`),
+  with `index.json` mapping each script ID to its player and each chunk to its
+  first step (read from the player's `STEPS`). It starts with `teleprompter`,
+  so `middleware.js` gates it. It is listed in `.git/info/exclude` (local
+  only), so it never reaches the public repo, and `vercel --prod` uploads it
+  from this Mac: **deploying from another machine leaves it out**, and re-run
+  the tool after a player changes. `tools/` is in `.vercelignore`. Link the
+  clean URL (`…/player?step=N`): the `.html` / `index.html` redirect of
+  `cleanUrls` drops the query (and `index.html` loses the folder for its
+  relative `media/` paths). `vercel.json` sends it `private, max-age=3600`
+  and noindex. After deleting and re-making the folder, restart `vercel dev`
+  (it keeps a stale file list). After a save a joined phone sends `refresh`; the host reloads and keeps
   its place (`anchorAt` / `restoreAnchor`). The host also re-reads the Tracker
   every 30 s while paused and on screen. **Text never changes while rolling:**
   an update that arrives mid-read is held (`pendingApply`) until the next pause.
@@ -344,3 +364,15 @@ saved, "Save mine over it" and "Use the Sheet's text" both write and redraw at
 the same place, the cue switch, the pace without cues. Found and fixed while
 testing: the editor closed after one chunk saved while another was still
 unsaved.
+
+**Nov 17 — the editor's animation and notes tiles.** Alfa asked for a 50%
+tile under each section with the animation, and a notes tile beside it. Built:
+`tools/prompter-media.mjs` copies the C003 square player into the PIN-gated,
+git-excluded `teleprompter-media/`; the editor shows each chunk's step of it
+and the Notes column, editable (needs bridge v3 in the vault, which Alfa
+pastes and redeploys; until then the tile says so). Tested with the mock
+bridge at 768×1024 and 375×812: frames load lazily, each on its own chunk's
+step; notes saved alone and together with a words edit; a notes conflict
+held back with the Sheet's notes while the others saved; "Use the Sheet's
+notes" then Save closes. Found while testing: the `index.html` link lost
+`?step` and the folder to the cleanUrls redirect, hence `player.html`.
