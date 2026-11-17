@@ -88,13 +88,20 @@ replaces it). Things to keep true when changing it:
   plus an "Edit token" (`tp.token`). That web app is
   `prompter-bridge.gs`, kept in the vault next to the Tracker's docs
   (`~/Projects/_Operations/_knowledge-base/20 Content/Playbook/Web & Social Tracker/`),
-  not in this repo. It returns scripts as `{id, version, title, chunks:[{row,
-  chunk, name, text}]}` and saves one chunk at a time with a `text/plain`
-  POST (no CORS preflight). Tracker scripts render chunk by chunk (`p[data-c]`),
-  so the pencil edits the chunk at the reading line. A save names the
-  row, ID, version, chunk and old text; the Sheet refuses it if any changed.
-  The Sheet's text is then shown, with "Save mine over it" / "Use the Sheet's
-  text". After a save a joined phone sends `refresh`; the host reloads and keeps
+  not in this repo. From its v2 it serves only the Tracker's **Prompter tab**
+  (the Final scripts; drafts stay in Scripts). It returns scripts as
+  `{id, version, title, chunks:[{row, chunk, name, text, budget, screen, camera,
+  status}]}` and saves one chunk at a time with a `text/plain` POST (no CORS
+  preflight). Tracker scripts render chunk by chunk (`p[data-c]`), with the
+  Screen column as a dim cue above each chunk (`p.scr`; Settings › Screen
+  cues; hidden in the camera view; its height is left out of the pace, so a
+  cue passes like a short pause). The pencil opens the **whole script**, one
+  box per chunk with words against budget, scrolled to the chunk at the
+  reading line; Save sends only the changed chunks, one after another. Each
+  save names the row, ID, version, chunk and old text; the Sheet refuses it if
+  any changed, and that chunk shows the Sheet's text with "Save mine over it" /
+  "Use the Sheet's text" while the others still save. The editor closes only
+  when nothing is left unsaved. After a save a joined phone sends `refresh`; the host reloads and keeps
   its place (`anchorAt` / `restoreAnchor`). The host also re-reads the Tracker
   every 30 s while paused and on screen. **Text never changes while rolling:**
   an update that arrives mid-read is held (`pendingApply`) until the next pause.
@@ -323,3 +330,17 @@ chrome stops 170 px from the right to make room). Tapping it asks to stop
 controlling the other device, leaves the link (no auto-rejoin next launch) and
 opens the camera. Checked at 375×812 in Chromium: no overlap with the script
 picker; confirm → link left, pad off, camera view on.
+
+**Nov 16 (night) — Final scripts, the whole-script editor, screen cues.**
+Alfa's design: a script tagged Final lives on the Tracker's Prompter tab (rows
+moved there by a Sheet menu), drafts stay in Scripts, and the teleprompter
+reads and edits only the Prompter tab. Bridge v2 in the vault (Alfa pastes it,
+runs `prompterSetup`, redeploys a new version on the same URL). In the page:
+the editor shows every chunk at once, the Screen column shows as cues, and new
+messages cover "set up" / "no Final scripts yet". Tested with the mock bridge
+at 768×1024 and 375×812: two chunks edited and saved in one go, a chunk the
+Sheet changed meanwhile held back with the Sheet's words while the other
+saved, "Save mine over it" and "Use the Sheet's text" both write and redraw at
+the same place, the cue switch, the pace without cues. Found and fixed while
+testing: the editor closed after one chunk saved while another was still
+unsaved.

@@ -129,6 +129,9 @@ html.mirror.flip #stage { transform: scale(-1, -1); }
 #text p { margin: 0 0 .85em; white-space: pre-wrap; overflow-wrap: break-word; }
 #text p:last-child { margin-bottom: 0; }
 .cue { color: var(--cue); font-size: .68em; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+/* Screen cue: the Tracker's "Screen" column, above its chunk. Not read, not timed as words. */
+#text p.scr { margin: 0 0 .5em; padding-left: .5em; border-left: .12em solid var(--cue); color: var(--cue); font-size: .44em; font-weight: 600; line-height: 1.35; letter-spacing: 0; opacity: .9; }
+html.no-scr #text p.scr, html.cam #text p.scr { display: none; }
 #end { margin: 1.4em 0 0; color: var(--cue); font-size: .5em; font-weight: 700; letter-spacing: .2em; text-transform: uppercase; opacity: .8; }
 
 /* Reading line: a faint band one line tall with a marker at the edge. */
@@ -372,18 +375,29 @@ body.playing #editBtn { display: none; }      /* edits only while paused */
 .ed-name { flex: 1; min-width: 0; text-align: center; }
 .ed-name b { display: block; font-size: 17px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ed-name small { display: block; font-size: 12.5px; color: var(--ui-soft); font-variant-numeric: tabular-nums; }
-#edText {
-  flex: 1; width: 100%; min-height: 220px; padding: 14px;
-  border: 1px solid var(--ui-line); border-radius: 14px; background: #0e1014;
-  font-family: var(--font-read); font-size: 19px; line-height: 1.5; resize: none;
-}
-.ed-foot { display: flex; justify-content: space-between; gap: 12px; font-size: 14px; color: var(--ui-soft); }
+.ed-head { position: sticky; top: calc(-8px - env(safe-area-inset-top)); z-index: 1; margin: 0 -16px; padding: 0 16px; background: var(--ui-solid); }
 #edStatus { min-height: 1.4em; margin: 0; font-size: 15px; }
 #edStatus.ok { color: var(--accent); }
 #edStatus.err { color: var(--warn); }
-#edConflict { padding: 14px; border: 1px solid var(--warn); border-radius: 14px; }
-#edConflict p { margin: 0 0 8px; font-size: 14.5px; color: var(--ui-soft); }
-#edCurrent { margin: 0; padding: 10px 12px; border-radius: 10px; background: #0e1014; font-family: var(--font-read); font-size: 16px; line-height: 1.45; white-space: pre-wrap; max-height: 30dvh; overflow-y: auto; }
+#edList { display: flex; flex-direction: column; gap: 22px; padding-bottom: 40dvh; }
+.ed-sec { display: flex; flex-direction: column; gap: 6px; scroll-margin-top: 70px; }
+.ed-sh { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.ed-sh b { font-size: 15px; }
+.ed-sh b small { margin-left: 6px; font-weight: 400; color: var(--ui-soft); }
+.ed-w { flex: none; font-size: 13.5px; color: var(--ui-soft); font-variant-numeric: tabular-nums; }
+.ed-w.over { color: var(--warn); }
+.ed-scr { margin: 0; padding-left: 10px; border-left: 2px solid var(--cue); font-size: 13.5px; line-height: 1.4; color: var(--ui-soft); white-space: pre-wrap; }
+.ed-sec textarea {
+  width: 100%; min-height: 4.8em; padding: 12px 14px; overflow: hidden;
+  border: 1px solid var(--ui-line); border-radius: 14px; background: #0e1014;
+  font-family: var(--font-read); font-size: 19px; line-height: 1.5; resize: none;
+}
+.ed-sec.changed textarea { border-color: var(--accent); }
+.ed-sec.saved .ed-sh b::after { content: ' ✓ saved'; color: var(--accent); font-weight: 600; font-size: 13px; }
+.ed-conf { padding: 12px 14px; border: 1px solid var(--warn); border-radius: 14px; }
+.ed-conf p { margin: 0 0 8px; font-size: 14.5px; color: var(--ui-soft); }
+.ed-conf .ed-cur { margin: 0 0 10px; padding: 10px 12px; border-radius: 10px; background: #0e1014; color: var(--ui-ink); font-family: var(--font-read); font-size: 16px; line-height: 1.45; white-space: pre-wrap; max-height: 30dvh; overflow-y: auto; }
+.ed-foot { margin: 0; font-size: 13.5px; color: var(--ui-soft); }
 
 #toast {
   position: fixed; z-index: 40; left: 50%; top: calc(env(safe-area-inset-top) + 70px);
@@ -652,6 +666,7 @@ html.pad .stepper.small output { font-size: 16px; }
     <h3>Reading aids</h3>
     <label class="row"><span>Timer<small>Time elapsed and time left at this speed.</small></span><input class="sw" type="checkbox" id="oTimer"></label>
     <label class="row"><span>Reading line<small>Marks the line to read from.</small></span><input class="sw" type="checkbox" id="oGuide"></label>
+    <label class="row"><span>Screen cues<small>What's on screen for each section, from the Tracker's Screen column. Hidden in the camera view.</small></span><input class="sw" type="checkbox" id="oScr"></label>
     <label class="row"><span>Countdown before start</span>
       <select id="oCountdown">
         <option value="0">Off</option>
@@ -678,7 +693,7 @@ html.pad .stepper.small output { font-size: 16px; }
   </section>
 </aside>
 
-<!-- Editing one chunk of a Tracker script. Saves straight to the Sheet. -->
+<!-- Editing a Tracker script: every chunk at once, each saved to its own row. -->
 <div id="editor" role="dialog" aria-modal="true" aria-labelledby="edTitle" hidden>
   <div class="ed-in">
     <div class="ed-head">
@@ -687,16 +702,8 @@ html.pad .stepper.small output { font-size: 16px; }
       <button class="btn" id="edSave" type="button">Save</button>
     </div>
     <p id="edStatus" role="status"></p>
-    <div id="edConflict" hidden>
-      <p>This chunk was changed in the Sheet after it was loaded, so nothing was saved. The Sheet now says:</p>
-      <p id="edCurrent"></p>
-      <div class="actions">
-        <button class="btn" id="edOverwrite" type="button">Save mine over it</button>
-        <button class="btn ghost" id="edTakeTheirs" type="button">Use the Sheet's text</button>
-      </div>
-    </div>
-    <textarea id="edText" spellcheck="true" autocapitalize="sentences" aria-label="Spoken text"></textarea>
-    <div class="ed-foot"><span id="edWords"></span><span>Blank line = new paragraph</span></div>
+    <div id="edList"></div>
+    <p class="ed-foot">Blank line = new paragraph. Save sends only the sections you changed.</p>
   </div>
 </div>
 <div id="toast" role="status" hidden></div>
@@ -738,7 +745,7 @@ html.pad .stepper.small output { font-size: 16px; }
   var S = Object.assign({
     wpm: 140, size: 0, lh: 1.35, width: 86,
     mirror: false, flip: false, invert: false,
-    timer: true, guide: true, countdown: 3
+    timer: true, guide: true, scr: true, countdown: 3
   }, store.get('tp.settings', {}));
   function saveSettings() { store.set('tp.settings', S); }
   // Camera view state (see "Camera view" below). Declared here because the
@@ -903,7 +910,10 @@ html.pad .stepper.small output { font-size: 16px; }
     if (!s) return null;
     if (!Array.isArray(s.chunks)) return typeof s.text === 'string' ? { title: String(s.title || 'Script'), text: s.text } : null;
     var chunks = s.chunks.filter(function (c) { return c && typeof c.text === 'string' && c.text.trim() && +c.row >= 2; })
-      .map(function (c) { return { row: +c.row, chunk: c.chunk, name: String(c.name || ''), text: c.text.replace(/\r\n?/g, '\n') }; });
+      .map(function (c) {
+        return { row: +c.row, chunk: c.chunk, name: String(c.name || ''), text: c.text.replace(/\r\n?/g, '\n'),
+                 budget: +c.budget > 0 ? +c.budget : null, screen: typeof c.screen === 'string' ? c.screen.trim() : '' };
+      });
     if (!chunks.length) return null;
     return { title: String(s.title || s.id), id: String(s.id), version: s.version, chunks: chunks, text: joinChunks(chunks) };
   }
@@ -912,9 +922,11 @@ html.pad .stepper.small output { font-size: 16px; }
     return bridgeFetch(url, { query: '?token=' + encodeURIComponent(token) + '&t=' + Date.now() }).then(function (j) {
       if (!j || !j.ok) throw new Error(j && j.error === 'token'
         ? "The Tracker didn't accept the edit token. Check it in Settings."
+        : j && j.error === 'setup'
+        ? "The Tracker's Prompter tab isn't set up yet: in Apps Script, run prompterSetup."
         : 'The Tracker link answered with an error.');
       var list = (j.scripts || []).map(toScript).filter(Boolean);
-      if (!list.length) throw new Error('The Tracker has no scripts with an ID and spoken text.');
+      if (!list.length) throw new Error('The Prompter tab has no Final scripts yet. In the Sheet, set every chunk of a script to Final, then Prompter › Send Final scripts.');
       return list;
     });
   }
@@ -1017,9 +1029,15 @@ html.pad .stepper.small output { font-size: 16px; }
     // Tracker scripts are drawn chunk by chunk, each paragraph tagged with its
     // chunk, so the editor knows which Sheet row is at the reading line.
     var parts = cur.chunks
-      ? cur.chunks.map(function (c, i) { return { t: c.text.replace(/\r\n?/g, '\n'), c: String(i) }; })
-      : [{ t: text, c: null }];
-    parts.forEach(function (part) { part.t.split(/\n\s*\n/).forEach(function (para) {
+      ? cur.chunks.map(function (c, i) { return { t: c.text.replace(/\r\n?/g, '\n'), c: String(i), scr: c.screen || '' }; })
+      : [{ t: text, c: null, scr: '' }];
+    parts.forEach(function (part) {
+      if (part.scr) {
+        var sc = document.createElement('p');
+        sc.className = 'scr'; sc.dataset.c = part.c; sc.textContent = part.scr;
+        textEl.appendChild(sc);
+      }
+      part.t.split(/\n\s*\n/).forEach(function (para) {
       para = para.trim();
       if (!para) return;
       var p = document.createElement('p');
@@ -1134,6 +1152,7 @@ html.pad .stepper.small output { font-size: 16px; }
     root.classList.toggle('invert', S.invert);
     root.classList.toggle('no-timer', !S.timer);
     root.classList.toggle('no-guide', !S.guide);
+    root.classList.toggle('no-scr', !S.scr);
     var meta = document.querySelector('meta[name="theme-color"]');
     if (meta) meta.setAttribute('content', S.invert ? '#ffffff' : '#000000');
     $('wpm').innerHTML = S.wpm + '<small>wpm</small>';
@@ -1145,7 +1164,13 @@ html.pad .stepper.small output { font-size: 16px; }
     var frac = max > 0 ? pos / max : 0;
     max = textEl.offsetHeight;
     pos = clamp(frac * max, 0, max);
-    pxPerSec = words && max ? (S.wpm / 60) * (max / words) : 0;
+    // Screen cues take up room but have no words: the pace is set by the text alone,
+    // so a cue passes the reading line like a short pause.
+    var cueH = 0;
+    Array.prototype.forEach.call(textEl.querySelectorAll('p.scr'), function (el) {
+      if (el.offsetHeight) cueH += el.offsetHeight + parseFloat(getComputedStyle(el).marginBottom || 0);
+    });
+    pxPerSec = words && max ? (S.wpm / 60) * (Math.max(max - cueH, max / 4) / words) : 0;
     render();
   }
 
@@ -1366,7 +1391,7 @@ html.pad .stepper.small output { font-size: 16px; }
     el.addEventListener('input', function () { S[key] = +el.value; saveSettings(); applyLook(); layout(); });
   }
   bindToggle('oMirror', 'mirror'); bindToggle('oFlip', 'flip'); bindToggle('oInvert', 'invert');
-  bindToggle('oTimer', 'timer'); bindToggle('oGuide', 'guide');
+  bindToggle('oTimer', 'timer'); bindToggle('oGuide', 'guide'); bindToggle('oScr', 'scr');
   bindValue('oWidth', 'width'); bindValue('oLh', 'lh'); bindValue('oCountdown', 'countdown');
 
   /* ---------- Keyboard / Bluetooth remote -------------------------------- */
@@ -1397,11 +1422,12 @@ html.pad .stepper.small output { font-size: 16px; }
     if (e.key === ' ' && !typing(e) && !body.classList.contains('panel-open') && !editing) e.preventDefault();
   });
 
-  /* ---------- Editing a Tracker chunk ----------------------------------- */
-  // Pause, bring a chunk to the reading line, tap the pencil. The save goes
-  // straight to the Tracker; on a joined phone it then asks the iPad to reload,
-  // and the iPad keeps its place. The Tracker refuses the save if the cell was
-  // changed since it was loaded, and sends back what it says now.
+  /* ---------- Editing a Tracker script ---------------------------------- */
+  // Pause and tap the pencil: the whole script opens, one box per chunk, at the
+  // chunk on the reading line. Saves go straight to the Tracker (one row per
+  // chunk); on a joined phone the iPad then reloads and keeps its place. The
+  // Tracker refuses a chunk whose cell changed since it was loaded, and sends
+  // back what it says now.
   var editing = null, toastTimer = 0;
   function editUrl() { return link.list ? link.bridge || '' : (isBridge(sheetUrl) ? sheetUrl : ''); }
   function canEdit() { return !!(cur && cur.chunks && token && editUrl()); }
@@ -1409,70 +1435,162 @@ html.pad .stepper.small output { font-size: 16px; }
   function wordsIn(t) { return (t.replace(new RegExp(CUE_RE.source, 'g'), ' ').match(/\S+/g) || []).length; }
   function tidy(t) { return t.replace(/\r\n?/g, '\n').replace(/[ \t]+\n/g, '\n').trim(); }
   function edStatus(msg, cls) { var el = $('edStatus'); el.textContent = msg || ''; el.className = cls || ''; }
-  function edBusy(on) { $('edSave').disabled = $('edOverwrite').disabled = on; }
   function toast(msg) {
     var el = $('toast'); el.textContent = msg; el.hidden = false;
     clearTimeout(toastTimer); toastTimer = setTimeout(function () { el.hidden = true; }, 2200);
   }
+  function el(tag, cls, text) {
+    var n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text != null) n.textContent = text;
+    return n;
+  }
+  var ED_ERR = {
+    moved: 'The rows in the Tracker have moved since this was loaded (a script was sent or returned). Close this, reload the scripts, and try again.',
+    token: "The Tracker didn't accept the edit token. Check it in Settings.",
+    busy: 'The Tracker is busy. Try again in a moment.',
+    empty: "A section can't be empty.",
+    'too-long': 'That is too long for one section.',
+    setup: "The Tracker's Prompter tab isn't set up yet."
+  };
 
+  // The whole script, one box per chunk (one Sheet row each), opened at the
+  // chunk on the reading line. Save sends only the chunks that changed.
   function openEditor() {
     if (!canEdit() || playing || counting) return;
-    var i = chunkAtLine();
-    if (i < 0 || !cur.chunks[i]) return;
-    var ch = cur.chunks[i];
-    editing = { script: cur, idx: i, row: ch.row, chunk: ch.chunk, base: ch.text };
-    $('edTitle').textContent = ch.name || 'Chunk ' + ch.chunk;
-    $('edMeta').textContent = cur.id + ' v' + cur.version + ' · chunk ' + ch.chunk + ' · row ' + ch.row;
-    $('edText').value = ch.text;
-    $('edConflict').hidden = true; edStatus(''); edBusy(false);
-    $('edWords').textContent = wordsIn(ch.text) + ' words';
+    var at = Math.max(0, chunkAtLine());
+    var e = editing = { script: cur, secs: [], busy: false };
+    $('edTitle').textContent = cur.title;
+    $('edList').textContent = '';
+    cur.chunks.forEach(function (ch, i) {
+      var sec = el('section', 'ed-sec');
+      var head = el('div', 'ed-sh');
+      var name = el('b', '', ch.name || 'Section ' + ch.chunk);
+      name.appendChild(el('small', '', 'chunk ' + ch.chunk));
+      var w = el('span', 'ed-w');
+      head.appendChild(name); head.appendChild(w);
+      sec.appendChild(head);
+      if (ch.screen) sec.appendChild(el('p', 'ed-scr', ch.screen));
+      var conf = el('div', 'ed-conf'); conf.hidden = true;
+      conf.appendChild(el('p', '', 'Changed in the Sheet after it was loaded, so this section was not saved. The Sheet now says:'));
+      var curP = el('p', 'ed-cur'); conf.appendChild(curP);
+      var acts = el('div', 'actions');
+      var over = el('button', 'btn', 'Save mine over it'); over.type = 'button';
+      var theirs = el('button', 'btn ghost', "Use the Sheet's text"); theirs.type = 'button';
+      acts.appendChild(over); acts.appendChild(theirs); conf.appendChild(acts);
+      sec.appendChild(conf);
+      var ta = el('textarea');
+      ta.spellcheck = true; ta.setAttribute('autocapitalize', 'sentences');
+      ta.setAttribute('aria-label', (ch.name || 'Section ' + ch.chunk) + ', spoken text');
+      ta.value = ch.text;
+      sec.appendChild(ta);
+      $('edList').appendChild(sec);
+      var x = { idx: i, row: ch.row, chunk: ch.chunk, budget: ch.budget, base: ch.text, current: null,
+                sec: sec, ta: ta, w: w, conf: conf, curP: curP, over: over };
+      e.secs.push(x);
+      ta.addEventListener('input', function () { grow(ta); sec.classList.remove('saved'); edCount(x); edMeta(); });
+      over.addEventListener('click', function () { edSave([x], true); });
+      theirs.addEventListener('click', function () {
+        x.base = x.current || ''; ta.value = x.base; grow(ta);
+        conf.hidden = true; x.current = null;
+        applyEdit({ script: e.script, idx: x.idx, row: x.row }, x.base);   // show the Sheet's words here too
+        cmd('refresh');                                                    // and on the iPad
+        edCount(x); edMeta(); edStatus('');
+      });
+      edCount(x);
+    });
+    edStatus(''); edBusy(false); edMeta();
     $('editor').hidden = false;
-    $('editor').scrollTop = 0;
+    e.secs.forEach(function (x) { grow(x.ta); });
+    var target = e.secs[at] && e.secs[at].sec;
+    $('editor').scrollTop = target && at > 0 ? target.offsetTop - 70 : 0;
+  }
+  function grow(ta) { ta.style.height = 'auto'; ta.style.height = ta.scrollHeight + 2 + 'px'; }
+  function isChanged(x) { return tidy(x.ta.value) !== tidy(x.base); }
+  function edCount(x) {
+    var n = wordsIn(x.ta.value);
+    x.w.textContent = n + (x.budget ? ' / ' + x.budget : '') + ' words';
+    x.w.classList.toggle('over', !!x.budget && n > x.budget);
+    x.sec.classList.toggle('changed', isChanged(x));
+  }
+  function edMeta() {
+    if (!editing) return;
+    var total = 0, budget = 0, changed = 0;
+    editing.secs.forEach(function (x) { total += wordsIn(x.ta.value); budget += x.budget || 0; if (isChanged(x)) changed++; });
+    $('edMeta').textContent = total + (budget ? ' / ' + budget : '') + ' words' +
+      (changed ? ' · ' + changed + (changed === 1 ? ' section' : ' sections') + ' changed' : '');
+  }
+  function edBusy(on) {
+    if (editing) editing.busy = on;
+    $('edSave').disabled = on;
+    if (editing) editing.secs.forEach(function (x) { x.over.disabled = on; });
   }
   function closeEditor(force) {
     if (!editing) return;
-    if (!force && tidy($('edText').value) !== tidy(editing.base) && !confirm('Discard your changes to this chunk?')) return;
+    var n = editing.secs.filter(isChanged).length;
+    if (!force && n && !confirm('Discard your changes to ' + (n === 1 ? 'this section?' : n + ' sections?'))) return;
     editing = null;
     $('editor').hidden = true;
+    $('edList').textContent = '';
     if (document.activeElement) document.activeElement.blur();
   }
-  function saveEdit(over) {
+  // Saves the given sections (or every changed one) one after another. A section
+  // the Sheet changed meanwhile shows the Sheet's words and waits for a choice;
+  // the others still save. Closes when nothing is left unsaved.
+  function edSave(only, over) {
     var e = editing;
-    if (!e) return;
-    var newText = tidy($('edText').value);
-    if (!newText) return edStatus("A chunk can't be empty. To drop it, clear it in the Sheet.", 'err');
-    if (over == null && newText === tidy(e.base)) return closeEditor(true);
+    if (!e || e.busy) return;
+    var todo = (only || e.secs).filter(function (x) { return over || isChanged(x); });
+    if (!todo.length) return closeEditor(true);
+    var empty = todo.filter(function (x) { return !tidy(x.ta.value); })[0];
+    if (empty) {
+      e.secs.forEach(function (x) { x.sec.scrollIntoView && x === empty && x.sec.scrollIntoView({ block: 'start' }); });
+      return edStatus("A section can't be empty. To drop one, clear it in the Sheet.", 'err');
+    }
     edBusy(true); edStatus('Saving…');
-    bridgeFetch(editUrl(), { body: {
-      token: token, row: e.row, id: e.script.id, version: e.script.version, chunk: e.chunk,
-      oldText: over != null ? over : e.base, newText: newText
-    } }).then(function (j) {
+    var saved = 0, failed = [], firstErr = '';
+    todo.reduce(function (p, x) {
+      return p.then(function () {
+        if (editing !== e) return;
+        var newText = tidy(x.ta.value);
+        return bridgeFetch(editUrl(), { body: {
+          token: token, row: x.row, id: e.script.id, version: e.script.version, chunk: x.chunk,
+          oldText: over ? (x.current || '') : x.base, newText: newText
+        } }).then(function (j) {
+          // A save that went through but whose reply was lost comes back as a
+          // "conflict" with our own words in the cell: that is a success.
+          if (j && (j.ok || (j.error === 'conflict' && tidy(j.current || '') === newText))) {
+            x.base = newText; x.current = null; x.conf.hidden = true;
+            x.sec.classList.add('saved');
+            applyEdit({ script: e.script, idx: x.idx, row: x.row }, newText);
+            saved++;
+          } else if (j && j.error === 'conflict') {
+            x.current = String(j.current || '');
+            x.curP.textContent = x.current; x.conf.hidden = false;
+            failed.push(x);
+          } else {
+            failed.push(x);
+            firstErr = firstErr || ED_ERR[j && j.error] || 'The Tracker answered with an error.';
+          }
+          edCount(x);
+        }, function (err) { failed.push(x); firstErr = firstErr || err.message; });
+      });
+    }, Promise.resolve()).then(function () {
       if (editing !== e) return;
-      // A save that went through but whose reply was lost comes back as a
-      // "conflict" with our own words in the cell: that is a success.
-      if (j && (j.ok || (j.error === 'conflict' && tidy(j.current || '') === newText))) {
-        applyEdit(e, newText);
+      edBusy(false); edMeta();
+      if (saved) cmd('refresh');                 // a joined phone: the iPad reloads from the Tracker
+      // Close only when nothing in the whole script is left unsaved.
+      var left = e.secs.filter(function (x) { return isChanged(x) || x.current != null; });
+      if (!left.length) {
         closeEditor(true);
-        toast('Saved to the Tracker');
-        cmd('refresh');                    // a joined phone: the iPad reloads from the Tracker
+        toast(saved === 1 ? 'Saved to the Tracker' : saved + ' sections saved to the Tracker');
         return;
       }
-      var err = j && j.error;
-      if (err === 'conflict') {
-        e.current = String(j.current || '');
-        $('edCurrent').textContent = e.current;
-        $('edConflict').hidden = false;
-        edStatus('Not saved: the Sheet changed.', 'err');
-      } else edStatus('Not saved. ' + ({
-        moved: 'The rows in the Tracker have moved since this was loaded. Close this, reload the scripts, and try again.',
-        token: "The Tracker didn't accept the edit token. Check it in Settings.",
-        busy: 'The Tracker is busy. Try again in a moment.',
-        empty: "A chunk can't be empty.",
-        'too-long': 'That is too long for one chunk.'
-      }[err] || 'The Tracker answered with an error.'), 'err');
-    }, function (err) {
-      if (editing === e) edStatus('Not saved. ' + err.message, 'err');
-    }).then(function () { if (editing === e) edBusy(false); });
+      var conflicts = left.filter(function (x) { return x.current != null; }).length;
+      edStatus((saved ? saved + ' saved. ' : '') + left.length + ' not saved' +
+        (conflicts ? ': changed in the Sheet (marked below).' : '.') + (firstErr ? ' ' + firstErr : ''), 'err');
+      left[0].sec.scrollIntoView({ block: 'start' });
+    });
   }
   // Puts the saved words into this device's copy, at the same place on screen.
   function applyEdit(e, newText) {
@@ -1490,18 +1608,7 @@ html.pad .stepper.small output { font-size: 16px; }
 
   $('editBtn').addEventListener('click', function () { this.blur(); openEditor(); });
   $('edCancel').addEventListener('click', function () { closeEditor(); });
-  $('edSave').addEventListener('click', function () { saveEdit(); });
-  $('edOverwrite').addEventListener('click', function () { if (editing) saveEdit(editing.current || ''); });
-  $('edTakeTheirs').addEventListener('click', function () {
-    if (!editing) return;
-    editing.base = editing.current || '';
-    $('edText').value = editing.base;
-    applyEdit(editing, editing.base);      // show the Sheet's words here too
-    cmd('refresh');                        // and on the iPad
-    $('edConflict').hidden = true; edStatus('');
-    $('edWords').textContent = wordsIn(editing.base) + ' words';
-  });
-  $('edText').addEventListener('input', function () { $('edWords').textContent = wordsIn(this.value) + ' words'; });
+  $('edSave').addEventListener('click', function () { edSave(); });
 
   /* ---------- Camera view ------------------------------------------------ */
   // The front camera fills the screen and the script reads in a band right
