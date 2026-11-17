@@ -130,8 +130,6 @@ html.mirror.flip #stage { transform: scale(-1, -1); }
 #text p:last-child { margin-bottom: 0; }
 .cue { color: var(--cue); font-size: .68em; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
 /* Screen cue: the Tracker's "Screen" column, above its chunk. Not read, not timed as words. */
-#text p.scr { margin: 0 0 .5em; padding-left: .5em; border-left: .12em solid var(--cue); color: var(--cue); font-size: .44em; font-weight: 600; line-height: 1.35; letter-spacing: 0; opacity: .9; }
-html.no-scr #text p.scr, html.cam #text p.scr { display: none; }
 #end { margin: 1.4em 0 0; color: var(--cue); font-size: .5em; font-weight: 700; letter-spacing: .2em; text-transform: uppercase; opacity: .8; }
 
 /* Reading line: a faint band one line tall with a marker at the edge. */
@@ -679,7 +677,6 @@ html.pad .stepper.small output { font-size: 16px; }
     <h3>Reading aids</h3>
     <label class="row"><span>Timer<small>Time elapsed and time left at this speed.</small></span><input class="sw" type="checkbox" id="oTimer"></label>
     <label class="row"><span>Reading line<small>Marks the line to read from.</small></span><input class="sw" type="checkbox" id="oGuide"></label>
-    <label class="row"><span>Screen cues<small>What's on screen for each section, from the Tracker's Screen column. Hidden in the camera view.</small></span><input class="sw" type="checkbox" id="oScr"></label>
     <label class="row"><span>Countdown before start</span>
       <select id="oCountdown">
         <option value="0">Off</option>
@@ -758,7 +755,7 @@ html.pad .stepper.small output { font-size: 16px; }
   var S = Object.assign({
     wpm: 140, size: 0, lh: 1.35, width: 86,
     mirror: false, flip: false, invert: false,
-    timer: true, guide: true, scr: true, countdown: 3
+    timer: true, guide: true, countdown: 3
   }, store.get('tp.settings', {}));
   function saveSettings() { store.set('tp.settings', S); }
   // Camera view state (see "Camera view" below). Declared here because the
@@ -1043,14 +1040,10 @@ html.pad .stepper.small output { font-size: 16px; }
     // Tracker scripts are drawn chunk by chunk, each paragraph tagged with its
     // chunk, so the editor knows which Sheet row is at the reading line.
     var parts = cur.chunks
-      ? cur.chunks.map(function (c, i) { return { t: c.text.replace(/\r\n?/g, '\n'), c: String(i), scr: c.screen || '' }; })
-      : [{ t: text, c: null, scr: '' }];
+      ? cur.chunks.map(function (c, i) { return { t: c.text.replace(/\r\n?/g, '\n'), c: String(i) }; })
+      : [{ t: text, c: null }];
+    // The Screen column (what's on screen) shows only in the editor, never while reading.
     parts.forEach(function (part) {
-      if (part.scr) {
-        var sc = document.createElement('p');
-        sc.className = 'scr'; sc.dataset.c = part.c; sc.textContent = part.scr;
-        textEl.appendChild(sc);
-      }
       part.t.split(/\n\s*\n/).forEach(function (para) {
       para = para.trim();
       if (!para) return;
@@ -1166,7 +1159,6 @@ html.pad .stepper.small output { font-size: 16px; }
     root.classList.toggle('invert', S.invert);
     root.classList.toggle('no-timer', !S.timer);
     root.classList.toggle('no-guide', !S.guide);
-    root.classList.toggle('no-scr', !S.scr);
     var meta = document.querySelector('meta[name="theme-color"]');
     if (meta) meta.setAttribute('content', S.invert ? '#ffffff' : '#000000');
     $('wpm').innerHTML = S.wpm + '<small>wpm</small>';
@@ -1178,13 +1170,7 @@ html.pad .stepper.small output { font-size: 16px; }
     var frac = max > 0 ? pos / max : 0;
     max = textEl.offsetHeight;
     pos = clamp(frac * max, 0, max);
-    // Screen cues take up room but have no words: the pace is set by the text alone,
-    // so a cue passes the reading line like a short pause.
-    var cueH = 0;
-    Array.prototype.forEach.call(textEl.querySelectorAll('p.scr'), function (el) {
-      if (el.offsetHeight) cueH += el.offsetHeight + parseFloat(getComputedStyle(el).marginBottom || 0);
-    });
-    pxPerSec = words && max ? (S.wpm / 60) * (Math.max(max - cueH, max / 4) / words) : 0;
+    pxPerSec = words && max ? (S.wpm / 60) * (max / words) : 0;
     render();
   }
 
@@ -1405,7 +1391,7 @@ html.pad .stepper.small output { font-size: 16px; }
     el.addEventListener('input', function () { S[key] = +el.value; saveSettings(); applyLook(); layout(); });
   }
   bindToggle('oMirror', 'mirror'); bindToggle('oFlip', 'flip'); bindToggle('oInvert', 'invert');
-  bindToggle('oTimer', 'timer'); bindToggle('oGuide', 'guide'); bindToggle('oScr', 'scr');
+  bindToggle('oTimer', 'timer'); bindToggle('oGuide', 'guide');
   bindValue('oWidth', 'width'); bindValue('oLh', 'lh'); bindValue('oCountdown', 'countdown');
 
   /* ---------- Keyboard / Bluetooth remote -------------------------------- */

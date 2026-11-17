@@ -92,10 +92,9 @@ replaces it). Things to keep true when changing it:
   (the Final scripts; drafts stay in Scripts). It returns scripts as
   `{id, version, title, chunks:[{row, chunk, name, text, budget, screen, camera,
   status}]}` and saves one chunk at a time with a `text/plain` POST (no CORS
-  preflight). Tracker scripts render chunk by chunk (`p[data-c]`), with the
-  Screen column as a dim cue above each chunk (`p.scr`; Settings › Screen
-  cues; hidden in the camera view; its height is left out of the pace, so a
-  cue passes like a short pause). The pencil opens the **whole script**, one
+  preflight). Tracker scripts render chunk by chunk (`p[data-c]`). The Screen
+  column shows **only in the editor** (Alfa, Nov 17: cues in the reading view
+  got in the way). The pencil opens the **whole script**, one
   box per chunk with words against budget, scrolled to the chunk at the
   reading line; Save sends only the changed chunks, one after another. Each
   save names the row, ID, version, chunk and old text; the Sheet refuses it if
@@ -376,3 +375,12 @@ step; notes saved alone and together with a words edit; a notes conflict
 held back with the Sheet's notes while the others saved; "Use the Sheet's
 notes" then Save closes. Found while testing: the `index.html` link lost
 `?step` and the folder to the cleanUrls redirect, hence `player.html`.
+
+**Nov 17 (late) — Sheet edits, screen cues out of the reading view.** Alfa's
+Prompter-tab edits reverted: the Sheet's Apps Script still held bridge v1 (v2/v3
+had gone into another project), so the Prompter tab was still the old formula.
+Fixed by pasting v3 into the Tracker's own project, prompterSetup, Send Final,
+new version. The pasted v3 showed "C003 v2 ¬∑ …": the Mac clipboard garbled
+"·", so the vault's bridge is now plain ASCII (v3.1, `\u` escapes in strings).
+The Screen column cues were removed from the reading view (setting gone too);
+the editor's animation tile still shows them.
