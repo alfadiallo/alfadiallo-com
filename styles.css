@@ -98,9 +98,11 @@ p { margin: 0; }
 .hero h1 { font-size: clamp(3.25rem, 10vw, 7.5rem); letter-spacing: -.04em; }
 .hero h1 .accent { color: #74eac0; }
 .hero p.lede { margin-top: 22px; font-size: clamp(1.05rem, 2vw, 1.3rem); line-height: 1.5; color: rgba(255,255,255,.92); max-width: 42ch; font-weight: 400; }
-.hero .links { margin-top: 34px; display: flex; flex-wrap: wrap; gap: 12px; }
-.hero .social { color: #fff; border-color: rgba(255,255,255,.42); background: rgba(0,0,0,.16); backdrop-filter: blur(4px); }
-.hero .social:hover { border-color: #fff; background: rgba(0,0,0,.3); }
+.hero .links { margin-top: 34px; display: flex; flex-wrap: wrap; gap: 12px 30px; }
+/* Hero links are plain icon + label, no pill outline or tint. Side padding is
+   dropped so the first icon lines up with the text column above. */
+.hero .social { color: #fff; border: 0; background: none; padding-left: 0; padding-right: 0; transition: opacity .2s, transform .2s; }
+.hero .social:hover { opacity: .75; }
 
 .hero-toggle { position: absolute; top: 22px; right: 24px; z-index: 3;
   border-color: rgba(255,255,255,.34); background: rgba(0,0,0,.18); color: #fff; }
@@ -291,7 +293,7 @@ footer.foot .mini a:hover { color: var(--accent); }
 @media (max-width: 760px) {
   .hero .wrap { padding-bottom: 56px; }
   .hero-name { display: none; }
-  .hero .links { gap: 10px; }
+  .hero .links { gap: 6px 24px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
