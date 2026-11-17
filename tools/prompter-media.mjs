@@ -25,7 +25,10 @@ for (const [id, dir] of Object.entries(PLAYERS)) {
   if (!Object.keys(steps).length) throw new Error(`${dir}: no STEPS with chunk numbers found`);
   fs.mkdirSync(path.join(OUT, id), { recursive: true });
   fs.copyFileSync(path.join(from, 'index.html'), path.join(OUT, id, 'player.html'));
-  fs.cpSync(path.join(from, 'media'), path.join(OUT, id, 'media'), { recursive: true });
+  // not: raw frames and scratch (names starting "_", e.g. media/video/_frames, 180+ MB), unfinished renders (.part.mp4),
+  // media/lines (review stills and the contact sheet) and the joined *-all.mp4 cut: no step plays them
+  const skip = p => { const b = path.basename(p); return b.startsWith('_') || b.endsWith('.part.mp4') || b.endsWith('-all.mp4') || p === path.join(from, 'media', 'lines'); };
+  fs.cpSync(path.join(from, 'media'), path.join(OUT, id, 'media'), { recursive: true, filter: p => !skip(p) });
   index[id] = { player: `${id}/player`, steps };
   console.log(id, '←', dir, JSON.stringify(steps));
 }

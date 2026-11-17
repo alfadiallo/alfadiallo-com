@@ -109,7 +109,9 @@ replaces it). Things to keep true when changing it:
   under it, never edited).
 - **`teleprompter-media/` (the players, PIN-gated, NOT in git).** Made by
   `node tools/prompter-media.mjs` from the UH vault's
-  `Modules/Animations/<player>/` (index.html → `player.html`, plus `media/`),
+  `Modules/Animations/<player>/` (index.html → `player.html`, plus `media/`
+  minus anything starting `_` (raw frames), `*-all.mp4` and `media/lines`;
+  C003 is about 22 MB, its chunk videos in `media/video/`),
   with `index.json` mapping each script ID to its player and each chunk to its
   first step (read from the player's `STEPS`). It starts with `teleprompter`,
   so `middleware.js` gates it. It is listed in `.git/info/exclude` (local
