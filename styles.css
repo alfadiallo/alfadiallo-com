@@ -294,6 +294,8 @@ footer.foot .mini a:hover { color: var(--accent); }
   .hero .wrap { padding-bottom: 56px; }
   .hero-name { display: none; }
   .hero .links { gap: 6px 24px; }
+  /* Narrow screens show only a slice of the photo; keep the face centered. */
+  .hero-img { object-position: 50% 45%; }
 }
 
 @media (prefers-reduced-motion: reduce) {
