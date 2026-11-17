@@ -10,7 +10,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-const SRC = path.join(process.env.HOME, 'Projects/Understanding Healthcare/Modules/Animations');
+// the Web & Social players live with the content (moved 2026-11-17 from Understanding Healthcare/Modules/Animations)
+const SRC = path.join(process.env.HOME, 'Projects/_Operations/_knowledge-base/20 Content/Animations');
 const PLAYERS = { C003: 'c003-deptsim' };   // add C004, C005 … when their players exist
 const OUT = 'teleprompter-media';
 

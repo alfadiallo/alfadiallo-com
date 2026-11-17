@@ -108,8 +108,9 @@ replaces it). Things to keep true when changing it:
   own (`field: 'notes'` POST, bridge v3; the "edited on prompter" line is shown
   under it, never edited).
 - **`teleprompter-media/` (the players, PIN-gated, NOT in git).** Made by
-  `node tools/prompter-media.mjs` from the UH vault's
-  `Modules/Animations/<player>/` (index.html → `player.html`, plus `media/`
+  `node tools/prompter-media.mjs` from the content folder,
+  `~/Projects/_Operations/_knowledge-base/20 Content/Animations/<player>/`
+  (moved there 2026-11-17 from the UH vault) (index.html → `player.html`, plus `media/`
   minus anything starting `_` (raw frames), `*-all.mp4` and `media/lines`;
   C003 is about 22 MB, its chunk videos in `media/video/`),
   with `index.json` mapping each script ID to its player and each chunk to its
