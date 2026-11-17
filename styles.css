@@ -75,7 +75,7 @@ p { margin: 0; }
   transition: border-color .2s, transform .2s, background .2s;
 }
 .social:hover { border-color: var(--ink); transform: translateY(-2px); }
-.social svg { width: 18px; height: 18px; flex: none; }
+.social svg, .social img { width: 18px; height: 18px; flex: none; }
 
 /* ==========================================================================
    Landing page (hero only)
