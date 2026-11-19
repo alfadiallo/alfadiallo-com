@@ -386,4 +386,30 @@ Fixed by pasting v3 into the Tracker's own project, prompterSetup, Send Final,
 new version. The pasted v3 showed "C003 v2 ¬∑ …": the Mac clipboard garbled
 "·", so the vault's bridge is now plain ASCII (v3.1, `\u` escapes in strings).
 The Screen column cues were removed from the reading view (setting gone too);
-the editor's animation tile still shows them.
+the editor's animation tile still shows them. Settings' "How to connect the Tracker" help now describes the
+Prompter tab, Final scripts and the whole-script editor, and points to the manual
+(a Claude doc, linked from the Tracker's Documentation tab; the URL is not in this
+public repo).
+
+**Nov 18 — iPad, sideways: the script drawn only three quarters wide.** Alfa's
+screenshot (home-screen app, 12.9" iPad on the teleprompter, Flip on, text 156):
+the lines wrapped for the full 1366 points, but the script and the reading band
+were drawn only 1024 points wide (the screen's width upright), so line ends looked
+cut off. Not a wrapping fault. It did not appear in the simulator (iPad Pro 13",
+iPadOS 27.2) in Safari or as the installed app, sideways, Flip or Mirror on, with
+or without turning the device. Added to the page: `redrawSoon()` (after `resize`,
+`orientationchange`, `pageshow`: hide and show `#stage`, and make the page one
+pixel taller for a moment so iOS measures it again), and `user-select: none` on
+`.chrome` so holding + or - does not select the number. Checked in Chromium at
+1366 x 1024: place kept, page height back to normal, no errors. Deployed
+uncommitted the same day; the gate, manifest, worker and other pages answer as
+before. **Confirmed on the iPad by Alfa the same day:** after closing Prompter and
+reopening it sideways, the right side of the script was back. So the cause was a
+stale drawing, not Flip; keep `redrawSoon()`. If the cut ever returns: ask whether
+turning Flip off brings the right side back (then move the Flip/Mirror transform
+off `#stage`, which is fixed and clips, onto an inner box). Now that the full
+width draws, the text fills the whole "Text width" setting (86% by default);
+Settings → Text width narrows it. `.claude/launch.json` has a new
+`site-clean` entry: a static server on 8011 that serves pages without `.html`
+and without the PIN gate, for testing the installed app in the simulator (the
+app's start address is `/teleprompter?view=remote`).

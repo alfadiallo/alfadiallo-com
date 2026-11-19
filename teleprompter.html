@@ -185,6 +185,8 @@ html.no-timer #hud { display: none; }
   border-radius: 18px;
   -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
   transition: opacity .25s ease, transform .25s ease;
+  /* Holding + or - must repeat, not select the number beside it (iPad). */
+  user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
 }
 /* body.remote = this device is driving another one, so its controls stay put. */
 body.playing.idle:not(.remote) .chrome { opacity: 0; pointer-events: none; }
@@ -624,11 +626,12 @@ html.pad .stepper.small output { font-size: 16px; }
       <summary>How to connect the Tracker (read and edit)</summary>
       <ol>
         <li>Paste the Tracker's web-app link (it ends in <b>/exec</b>) above, and its edit token below. Both stay on this device only.</li>
-        <li>Scripts are read live from the Tracker's Scripts tab, one per ID and version, and checked again every 30 seconds while paused.</li>
-        <li>To edit, pause, bring the part you want to change to the reading line, and tap the pencil. Saving writes that chunk's Spoken cell and notes the edit in its Notes cell.</li>
+        <li>Only the Tracker's <b>Prompter</b> tab is read: its Final scripts, one per ID and version. Drafts on the Scripts tab never show here. It is checked again every 30 seconds while paused; the refresh arrow checks now.</li>
+        <li>To put a script here: in the Sheet, set Status to <b>Final</b> on every chunk of it in Scripts, then Prompter &rsaquo; Send Final scripts.</li>
+        <li>To edit, pause and tap the pencil: the whole script opens, each section with its animation and Screen line on the left and its Notes on the right. Save writes only the sections you changed (Spoken and Notes on the Prompter tab).</li>
         <li>A phone joined to an iPad that uses the Tracker only needs the edit token: the link comes from the iPad.</li>
       </ol>
-      <p>If the cell was changed in the Sheet since it was loaded, the save is refused and you see the Sheet's version.</p>
+      <p>If a section was changed in the Sheet since it was loaded, that section isn't saved and you see the Sheet's version, to take it or save yours over it. The full manual is linked from the Tracker's Documentation tab.</p>
     </details>
     <label class="field">
       <span>Or paste a script</span>
@@ -2161,7 +2164,28 @@ html.pad .stepper.small output { font-size: 16px; }
 
   // Rotation, text size, width, web-font swap: anything that reflows the script.
   if (window.ResizeObserver) new ResizeObserver(layout).observe(textEl);
-  window.addEventListener('resize', function () { applyLook(); updatePad(); layout(); });
+  window.addEventListener('resize', function () { applyLook(); updatePad(); layout(); redrawSoon(); });
+
+  // iPad home-screen app held sideways (Alfa, Nov 18): the text wrapped for the
+  // full screen, but the script was drawn only as wide as the screen is upright
+  // (1024 of 1366 points), so the end of every line was cut off. The layout was
+  // right; what iOS had drawn was stale. So after the screen changes shape, and
+  // when the page is shown, draw the stage again from scratch and make iOS
+  // measure the visible page again (the page is one pixel taller for a moment).
+  // The simulator (iPadOS 27) never showed the fault; Alfa confirmed on the iPad
+  // the same day that this brings the right side back. Keep it.
+  var redrawTimers = [];
+  function redraw() {
+    stage.style.display = 'none'; void stage.offsetHeight; stage.style.display = '';
+    root.style.height = 'calc(100% + 1px)';
+    setTimeout(function () { root.style.height = ''; }, 60);   // a timer, not a frame: frames stop while the page is hidden
+  }
+  function redrawSoon() {
+    redrawTimers.forEach(clearTimeout);
+    redrawTimers = [setTimeout(redraw, 300), setTimeout(redraw, 1500)];
+  }
+  window.addEventListener('orientationchange', redrawSoon);
+  window.addEventListener('pageshow', redrawSoon);
 
   if (sheetUrl) loadSheet(sheetUrl, true);   // refresh quietly; the saved copy is already on screen
 
